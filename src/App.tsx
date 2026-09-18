@@ -1,52 +1,49 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { getVersion } from "@tauri-apps/api/app";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
-import { checkForUpdates, type UpdateStatus } from "./updater";
+import { checkForUpdates } from "./updater";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Toaster } from "@/components/ui/sonner";
 import "./App.css";
-
-function UpdateOverlay({ status }: { status: UpdateStatus }) {
-  let message = "";
-  switch (status.state) {
-    case "checking":
-      message = "Checking for updates...";
-      break;
-    case "downloading": {
-      const pct = status.contentLength
-        ? Math.round((status.downloaded / status.contentLength) * 100)
-        : null;
-      message = pct !== null ? `Downloading update... ${pct}%` : "Downloading update...";
-      break;
-    }
-    case "installing":
-      message = "Installing update...";
-      break;
-    case "relaunching":
-      message = "Restarting app...";
-      break;
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 text-lg text-white">
-      <p>{message}</p>
-    </div>
-  );
-}
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: "idle" });
 
   useEffect(() => {
-    checkForUpdates(setUpdateStatus).catch((err) => {
+    const toastId = toast.loading("Checking for updates...");
+
+    checkForUpdates(async (status) => {
+      switch (status.state) {
+        case "idle": {
+          const version = await getVersion();
+          toast.success(`You're up to date (v${version})`, { id: toastId });
+          break;
+        }
+        case "downloading": {
+          const pct = status.contentLength
+            ? Math.round((status.downloaded / status.contentLength) * 100)
+            : null;
+          toast.loading(pct !== null ? `Downloading update... ${pct}%` : "Downloading update...", {
+            id: toastId,
+          });
+          break;
+        }
+        case "installing":
+          toast.loading("Installing update...", { id: toastId });
+          break;
+        case "relaunching":
+          toast.loading("Restarting app...", { id: toastId });
+          break;
+      }
+    }).catch((err) => {
       console.error(err);
-      setUpdateStatus({ state: "idle" });
+      toast.error("Update check failed", { id: toastId });
     });
   }, []);
-
-  const isBlocking = updateStatus.state !== "idle" && updateStatus.state !== "error";
 
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -55,7 +52,7 @@ function App() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      {isBlocking && <UpdateOverlay status={updateStatus} />}
+      <Toaster />
       <h1 className="text-3xl font-bold">Welcome to Tauri + React (v0.1.4 - auto-update test)</h1>
 
       <div className="flex items-center justify-center gap-6">
