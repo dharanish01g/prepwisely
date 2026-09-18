@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import { checkForUpdates, type UpdateStatus } from "./updater";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import "./App.css";
 
 function UpdateOverlay({ status }: { status: UpdateStatus }) {
@@ -26,20 +28,7 @@ function UpdateOverlay({ status }: { status: UpdateStatus }) {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0, 0, 0, 0.85)",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        fontSize: "1.2rem",
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 text-lg text-white">
       <p>{message}</p>
     </div>
   );
@@ -65,36 +54,36 @@ function App() {
   }
 
   return (
-    <main className="container">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
       {isBlocking && <UpdateOverlay status={updateStatus} />}
-      <h1>Welcome to Tauri + React (v0.1.4 - auto-update test)</h1>
+      <h1 className="text-3xl font-bold">Welcome to Tauri + React (v0.1.4 - auto-update test)</h1>
 
-      <div className="row">
+      <div className="flex items-center justify-center gap-6">
         <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
+          <img src="/vite.svg" className="h-24 w-24 transition-transform hover:scale-110" alt="Vite logo" />
         </a>
         <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
+          <img src="/tauri.svg" className="h-24 w-24 transition-transform hover:scale-110" alt="Tauri logo" />
         </a>
         <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
+          <img src={reactLogo} className="h-24 w-24 transition-transform hover:scale-110" alt="React logo" />
         </a>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      <p className="text-muted-foreground">Click on the Tauri, Vite, and React logos to learn more.</p>
 
       <form
-        className="row"
+        className="flex items-center justify-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           greet();
         }}
       >
-        <input
+        <Input
           id="greet-input"
           onChange={(e) => setName(e.currentTarget.value)}
           placeholder="Enter a name..."
         />
-        <button type="submit">Greet</button>
+        <Button type="submit">Greet</Button>
       </form>
       <p>{greetMsg}</p>
     </main>
