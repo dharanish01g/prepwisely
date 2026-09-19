@@ -1,48 +1,21 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { getVersion } from "@tauri-apps/api/app";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
-import { checkForUpdates } from "./updater";
+import { getVersion } from "@tauri-apps/api/app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Toaster } from "@/components/ui/sonner";
+import { UpdateBanner } from "@/components/update-banner";
+import { useUpdater } from "@/hooks/use-updater";
 import "./App.css";
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
+  const [version, setVersion] = useState<string | null>(null);
+  const updater = useUpdater();
 
   useEffect(() => {
-    const toastId = toast.loading("Checking for updates...");
-
-    checkForUpdates(async (status) => {
-      switch (status.state) {
-        case "idle": {
-          const version = await getVersion();
-          toast.success(`You're up to date (v${version})`, { id: toastId });
-          break;
-        }
-        case "downloading": {
-          const pct = status.contentLength
-            ? Math.round((status.downloaded / status.contentLength) * 100)
-            : null;
-          toast.loading(pct !== null ? `Downloading update... ${pct}%` : "Downloading update...", {
-            id: toastId,
-          });
-          break;
-        }
-        case "installing":
-          toast.loading("Installing update...", { id: toastId });
-          break;
-        case "relaunching":
-          toast.loading("Restarting app...", { id: toastId });
-          break;
-      }
-    }).catch((err) => {
-      console.error(err);
-      toast.error("Update check failed", { id: toastId });
-    });
+    getVersion().then(setVersion).catch(console.error);
   }, []);
 
   async function greet() {
@@ -52,8 +25,11 @@ function App() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Toaster />
-      <h1 className="text-3xl font-bold">Welcome to Tauri + React (v0.1.4 - auto-update test)</h1>
+      <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} />
+      <Button variant="outline" size="sm" className="absolute top-4 right-4" onClick={updater.check}>
+        Check for updates
+      </Button>
+      <h1 className="text-3xl font-bold">Welcome to Tauri + React{version && ` (v${version})`}</h1>
 
       <div className="flex items-center justify-center gap-6">
         <a href="https://vite.dev" target="_blank">
