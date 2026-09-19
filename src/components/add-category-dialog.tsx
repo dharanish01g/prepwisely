@@ -10,19 +10,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useSaveCategory } from "@/lib/categories";
+import { CategoryFields } from "@/components/category-fields";
+import { type CategoryInput, useCategories, useSaveCategory } from "@/lib/categories";
 
-const EMPTY = { name: "", description: "" };
+const EMPTY: CategoryInput = { name: "", slug: "", parent_id: null, description: "", is_active: true };
 
 export function AddCategoryDialog() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const save = useSaveCategory();
-
-  const set = (key: keyof typeof EMPTY) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const { data: categories = [] } = useCategories();
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -50,16 +47,15 @@ export function AddCategoryDialog() {
             <DialogDescription>Create a category to organise the question bank.</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" required value={form.name} onChange={(e) => set("name")(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" rows={2} value={form.description} onChange={(e) => set("description")(e.target.value)} />
-            </div>
-          </div>
+          {/* Keyed on open so the slug auto-fill state resets each time the dialog is opened. */}
+          <CategoryFields
+            key={String(open)}
+            form={form}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            categories={categories}
+            autoSlug
+            idPrefix="add_category_"
+          />
 
           {save.error && <p className="text-xs text-destructive">{save.error.message}</p>}
 

@@ -1,10 +1,8 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { type Category, useSaveCategory } from "@/lib/categories";
+import { CategoryFields } from "@/components/category-fields";
+import { type Category, type CategoryInput, selfAndDescendantIds, useCategories, useSaveCategory } from "@/lib/categories";
 
 interface EditCategoryDialogProps {
   category: Category | null;
@@ -23,13 +21,20 @@ export function EditCategoryDialog({ category, onClose }: EditCategoryDialogProp
 }
 
 function EditCategoryForm({ category, onClose }: { category: Category; onClose: () => void }) {
-  const [name, setName] = useState(category.name);
-  const [description, setDescription] = useState(category.description ?? "");
+  const [form, setForm] = useState<CategoryInput>({
+    name: category.name,
+    slug: category.slug,
+    parent_id: category.parent_id,
+    description: category.description ?? "",
+    is_active: category.is_active,
+  });
   const save = useSaveCategory();
+  const { data: categories = [] } = useCategories();
+  const excluded = useMemo(() => selfAndDescendantIds(categories, category.id), [categories, category.id]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    save.mutate({ id: category.id, name, description }, { onSuccess: onClose });
+    save.mutate({ id: category.id, ...form }, { onSuccess: onClose });
   }
 
   return (
@@ -39,16 +44,14 @@ function EditCategoryForm({ category, onClose }: { category: Category; onClose: 
         <DialogDescription>Update details for {category.name}.</DialogDescription>
       </DialogHeader>
 
-      <div className="grid gap-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="edit_name">Name</Label>
-          <Input id="edit_name" required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="edit_description">Description</Label>
-          <Textarea id="edit_description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-      </div>
+      <CategoryFields
+        form={form}
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        categories={categories}
+        excludedParentIds={excluded}
+        autoSlug={false}
+        idPrefix="edit_category_"
+      />
 
       {save.error && <p className="text-xs text-destructive">{save.error.message}</p>}
 
