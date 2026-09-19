@@ -4,21 +4,28 @@ import * as React from "react"
 
 // import { NavMain } from "@/components/nav-main"
 // import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
+// import { NavUser } from "@/components/nav-user"
+// import { TeamSwitcher } from "@/components/team-switcher"
 import { useAuth } from "@/hooks/use-auth"
 import logo from "@/assets/logo.png"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { AudioLinesIcon, TerminalIcon } from "lucide-react"
+import { LayersIcon, LogOutIcon, UsersIcon } from "lucide-react"
+// import { AudioLinesIcon, TerminalIcon } from "lucide-react"
 // import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
 
-// This is sample data.
+// Sample data (team switcher, nav, projects), commented out for now; reuse later.
+/*
 const data = {
   teams: [
     {
@@ -43,8 +50,6 @@ const data = {
       plan: "Free",
     },
   ],
-  // Commented out for now; will be reused for the real nav later.
-  /*
   navMain: [
     {
       title: "Playground",
@@ -170,29 +175,92 @@ const data = {
       ),
     },
   ],
-  */
+}
+*/
+
+export type Page = "dashboard" | "user-management" | "categories"
+
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  activePage: Page
+  onNavigate: (page: Page) => void
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAuth()
-  const email = user?.email ?? ""
-  const currentUser = {
-    name: email.split("@")[0] || "User",
-    email,
-    avatar: "",
-  }
+export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps) {
+  const { signOut } = useAuth()
+  // const { user } = useAuth()
+  // const email = user?.email ?? ""
+  // const currentUser = {
+  //   name: email.split("@")[0] || "User",
+  //   email,
+  //   avatar: "",
+  // }
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        {/* <TeamSwitcher teams={data.teams} /> */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              render={<div />}
+              className="cursor-default hover:bg-transparent hover:text-inherit active:bg-transparent"
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                <img src={logo} alt="" className="size-full object-contain" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">prepwisely.in</span>
+                <span className="truncate text-xs text-muted-foreground">Superadmin</span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Platform Management</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="User Management"
+                isActive={activePage === "user-management"}
+                onClick={() => onNavigate("user-management")}
+              >
+                <UsersIcon />
+                <span>User Management</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Content Management</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Categories"
+                isActive={activePage === "categories"}
+                onClick={() => onNavigate("categories")}
+              >
+                <LayersIcon />
+                <span>Categories</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
         {/* <NavMain items={data.navMain} /> */}
         {/* <NavProjects projects={data.projects} /> */}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={currentUser} />
+        {/* <NavUser user={currentUser} /> */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Log out" onClick={() => void signOut()}>
+              <LogOutIcon />
+              <span>Log out</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

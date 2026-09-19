@@ -1,27 +1,25 @@
-import { useEffect, useState } from "react";
-import { getVersion } from "@tauri-apps/api/app";
-import { AppSidebar } from "@/components/app-sidebar";
+import { useState } from "react";
+import { AppSidebar, type Page } from "@/components/app-sidebar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { CategoriesScreen } from "@/screens/categories";
+import { UserManagementScreen } from "@/screens/user-management";
 
-interface DashboardProps {
-  onCheckForUpdates: () => void;
-}
+const PAGE_TITLES: Record<Page, string> = {
+  dashboard: "Dashboard",
+  "user-management": "User Management",
+  categories: "Categories",
+};
 
-export function DashboardScreen({ onCheckForUpdates }: DashboardProps) {
+export function DashboardScreen() {
   const { user } = useAuth();
-  const [version, setVersion] = useState<string | null>(null);
-
-  useEffect(() => {
-    getVersion().then(setVersion).catch(console.error);
-  }, []);
+  const [page, setPage] = useState<Page>("dashboard");
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar activePage={page} onNavigate={setPage} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
@@ -30,23 +28,23 @@ export function DashboardScreen({ onCheckForUpdates }: DashboardProps) {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                  <BreadcrumbPage>{PAGE_TITLES[page]}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div className="ml-auto flex items-center gap-3 px-4">
-            {version && <span className="text-xs text-muted-foreground">v{version}</span>}
-            <Button variant="outline" size="sm" onClick={onCheckForUpdates}>
-              Check for updates
-            </Button>
-          </div>
         </header>
 
-        <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Signed in as {user?.email}. More coming soon.</p>
-        </div>
+        {page === "user-management" ? (
+          <UserManagementScreen />
+        ) : page === "categories" ? (
+          <CategoriesScreen />
+        ) : (
+          <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
+            <h1 className="text-2xl font-semibold">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Signed in as {user?.email}. More coming soon.</p>
+          </div>
+        )}
       </SidebarInset>
     </SidebarProvider>
   );
