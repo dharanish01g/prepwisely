@@ -1,6 +1,6 @@
 // Superadmin-only staff management. One endpoint, four actions:
 //   create          { full_name, email, password, role_id, phone?, address? }
-//   update          { user_id, full_name, phone?, address? }
+//   update          { user_id, full_name, phone?, address?, role_id? }   (role_id replaces the user's role)
 //   reset_password  { user_id, password }
 //   set_status      { user_id, status: "active" | "inactive" }
 // Nothing here deletes users. Writes use the service role; the caller must be an active superadmin.
@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
     case "create":
       return await createUser(admin, callerId, body);
     case "update":
-      return await updateUser(admin, body);
+      return await updateUser(admin, callerId, body);
     case "reset_password":
       return await resetPassword(admin, body);
     case "set_status":
@@ -127,14 +127,29 @@ async function createUser(admin: Admin, callerId: string, body: Record<string, u
   return json({ user: { id: userId, full_name: fullName, email, phone, address, role_id: roleId, status: "active" } }, 201);
 }
 
-// Email and role are intentionally not editable here.
-async function updateUser(admin: Admin, body: Record<string, unknown>) {
+// Email is intentionally not editable here. `role_id` is optional: when given, it replaces the user's role.
+async function updateUser(admin: Admin, callerId: string, body: Record<string, unknown>) {
   const userId = str(body.user_id);
   const fullName = str(body.full_name);
   const phone = str(body.phone) || null;
   const address = str(body.address) || null;
+  const roleId = str(body.role_id);
   if (!userId) return fail(400, "user_id is required");
   if (!fullName) return fail(400, "Full name is required");
+
+  if (roleId) {
+    // Guards against a superadmin demoting themselves out of access.
+    if (userId === callerId) return fail(400, "You cannot change your own role");
+    // Done first: it is the step most likely to be refused (e.g. last superadmin), and it is atomic.
+    const { error: roleError } = await admin.rpc("admin_set_user_role", { p_user_id: userId, p_role_id: roleId });
+    if (roleError) {
+      const message = roleError.message;
+      if (message === "User not found") return fail(404, message);
+      if (message === "Unknown role") return fail(400, message);
+      if (message.startsWith("There must be")) return fail(409, message);
+      return fail(500, "Could not change role");
+    }
+  }
 
   const { data, error } = await admin
     .from("profiles")

@@ -72,6 +72,8 @@ export interface StaffUserDetails {
   full_name: string;
   phone?: string;
   address?: string;
+  /** Only send when the role actually changes; the server replaces the user's role with this one. */
+  role_id?: string;
 }
 
 const optionalText = z.string().trim().optional();
@@ -88,9 +90,14 @@ const newStaffUserSchema = staffUserDetailsSchema.extend({
   role_id: z.string().min(1, "Select a role"),
 });
 
+// When the role is left out the server keeps it as is; an empty string would be a mistake, so reject it.
+const updateStaffUserSchema = staffUserDetailsSchema.extend({
+  role_id: z.string().min(1, "Select a role").optional(),
+});
+
 // Each call validates first and throws an Error with the first problem, which the dialogs already display.
 export const updateUser = (userId: string, details: StaffUserDetails) =>
-  callAdminUsers({ action: "update", user_id: userId, ...parseOrThrow(staffUserDetailsSchema, details) });
+  callAdminUsers({ action: "update", user_id: userId, ...parseOrThrow(updateStaffUserSchema, details) });
 
 export const resetPassword = (userId: string, password: string) =>
   callAdminUsers({ action: "reset_password", user_id: userId, password: parseOrThrow(newPasswordSchema, password) });
