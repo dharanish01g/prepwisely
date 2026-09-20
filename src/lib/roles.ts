@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
 
 // Roles live in the `roles` table (public.roles). Nothing is hardcoded here.
@@ -33,4 +35,24 @@ export function useRoles() {
   const roleLabel = (id: string) => roles.find((r) => r.id === id)?.label ?? id;
 
   return { roles, loading, roleLabel };
+}
+
+/** Role ids of the signed-in user (RLS lets each user read their own roles). */
+export function useMyRoleIds() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["my-roles", user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<string[]> => {
+      const { data, error } = await supabase.from("user_roles").select("role_id").eq("user_id", user!.id);
+      if (error) throw error;
+      return data.map((r) => r.role_id);
+    },
+  });
+}
+
+/** UI-only convenience; the database enforces the real rule with RLS. */
+export function useIsSuperadmin() {
+  const { data, isPending } = useMyRoleIds();
+  return { isSuperadmin: data?.includes("superadmin") ?? false, loading: isPending };
 }

@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { buildCategoryRows, type Category, useCategories } from "@/lib/categories";
+import { useIsSuperadmin } from "@/lib/roles";
 
 export function CategoriesScreen() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Category | null>(null);
   const { data: categories = [], isPending, error } = useCategories();
+  // Only superadmins can add or edit categories (enforced by RLS too); everyone else gets a read-only list.
+  const { isSuperadmin } = useIsSuperadmin();
 
   const rows = useMemo(() => buildCategoryRows(categories), [categories]);
   const parentName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
@@ -32,7 +35,7 @@ export function CategoriesScreen() {
           <h1 className="text-2xl font-semibold">Categories</h1>
           <p className="text-sm text-muted-foreground">View and manage the categories that organise the question bank.</p>
         </div>
-        <AddCategoryDialog />
+        {isSuperadmin && <AddCategoryDialog />}
       </div>
 
       <div className="relative max-w-sm">
@@ -54,38 +57,38 @@ export function CategoriesScreen() {
               <TableHead>Parent</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-10" />
+              {isSuperadmin && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isPending ? (
-              <TableSkeletonRows columns={["w-32", "w-28", "w-28", "w-48", "w-16", "w-6 ml-auto"]} />
+              <TableSkeletonRows columns={["w-32", "w-28", "w-28", "w-48", "w-16", ...(isSuperadmin ? ["w-6 ml-auto"] : [])]} />
             ) : error || filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
+                <TableCell colSpan={isSuperadmin ? 6 : 5} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
                   {error ? `Could not load categories: ${error.message}` : "No categories found."}
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map(({ category: c, depth }) => (
+              filtered.map(({ category: c }) => (
                 <TableRow key={c.id}>
-                  {/* Rows are ordered parent-then-children; indent shows the level. */}
-                  <TableCell className="font-medium" style={{ paddingLeft: `${0.5 + (query ? 0 : depth) * 1.25}rem` }}>
-                    {c.name}
-                  </TableCell>
+                  {/* Rows are ordered parent-then-children; the Parent column shows the level. */}
+                  <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell className="text-muted-foreground">{c.slug}</TableCell>
                   <TableCell>{c.parent_id ? (parentName.get(c.parent_id) ?? "—") : "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.description ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant={c.is_active ? "default" : "secondary"}>{c.is_active ? "active" : "inactive"}</Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${c.name}`} onClick={() => setEditing(c)}>
-                        <PencilIcon />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {isSuperadmin && (
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon-sm" aria-label={`Edit ${c.name}`} onClick={() => setEditing(c)}>
+                          <PencilIcon />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -93,7 +96,7 @@ export function CategoriesScreen() {
         </Table>
       </div>
 
-      <EditCategoryDialog category={editing} onClose={() => setEditing(null)} />
+      {isSuperadmin && <EditCategoryDialog category={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import * as React from "react"
 // import { NavUser } from "@/components/nav-user"
 // import { TeamSwitcher } from "@/components/team-switcher"
 import { useAuth } from "@/hooks/use-auth"
+import { COMMON_ITEMS, useNav, type NavItem } from "@/lib/nav"
+import { useMyRoleIds, useRoles } from "@/lib/roles"
 import logo from "@/assets/logo.png"
 import {
   Sidebar,
@@ -18,9 +20,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { LayersIcon, LogOutIcon, UsersIcon } from "lucide-react"
+import { LogOutIcon } from "lucide-react"
 // import { AudioLinesIcon, TerminalIcon } from "lucide-react"
 // import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
 
@@ -178,15 +181,26 @@ const data = {
 }
 */
 
-export type Page = "dashboard" | "user-management" | "categories"
-
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  activePage: Page
-  onNavigate: (page: Page) => void
+  activePage: string
+  onNavigate: (page: string) => void
 }
 
 export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps) {
   const { signOut } = useAuth()
+  const { groups, loading } = useNav()
+  const { data: myRoleIds = [] } = useMyRoleIds()
+  const { roleLabel, loading: rolesLoading } = useRoles()
+  const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
+
+  const renderItem = (item: NavItem) => (
+    <SidebarMenuItem key={item.id}>
+      <SidebarMenuButton tooltip={item.title} isActive={activePage === item.id} onClick={() => onNavigate(item.id)}>
+        <item.icon />
+        <span>{item.title}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
   // const { user } = useAuth()
   // const email = user?.email ?? ""
   // const currentUser = {
@@ -211,49 +225,38 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">prepwisely.in</span>
-                <span className="truncate text-xs text-muted-foreground">Superadmin</span>
+                <span className="truncate text-xs text-muted-foreground">{roleText}</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Platform Management</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip="User Management"
-                isActive={activePage === "user-management"}
-                onClick={() => onNavigate("user-management")}
-              >
-                <UsersIcon />
-                <span>User Management</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Content Management</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip="Categories"
-                isActive={activePage === "categories"}
-                onClick={() => onNavigate("categories")}
-              >
-                <LayersIcon />
-                <span>Categories</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+        {loading ? (
+          <SidebarGroup>
+            <SidebarMenu>
+              {[0, 1, 2, 3].map((i) => (
+                <SidebarMenuItem key={i}>
+                  <SidebarMenuSkeleton showIcon />
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        ) : (
+          groups.map((group) => (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarMenu>{group.items.map(renderItem)}</SidebarMenu>
+            </SidebarGroup>
+          ))
+        )}
         {/* <NavMain items={data.navMain} /> */}
         {/* <NavProjects projects={data.projects} /> */}
       </SidebarContent>
       <SidebarFooter>
         {/* <NavUser user={currentUser} /> */}
         <SidebarMenu>
+          {COMMON_ITEMS.map(renderItem)}
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Log out" onClick={() => void signOut()}>
               <LogOutIcon />
