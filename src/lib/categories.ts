@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
+import { parseOrThrow } from "@/lib/validation";
 import { useAuth } from "@/hooks/use-auth";
 
 export interface Category {
@@ -18,6 +20,18 @@ export interface CategoryInput {
   description: string;
   is_active: boolean;
 }
+
+const categorySchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  slug: z
+    .string()
+    .trim()
+    .min(1, "Slug is required")
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug can only contain lowercase letters, numbers and hyphens"),
+  parent_id: z.string().nullable(),
+  description: z.string().trim(),
+  is_active: z.boolean(),
+});
 
 const CATEGORIES_KEY = ["categories"] as const;
 const UNIQUE_VIOLATION = "23505";
@@ -66,13 +80,8 @@ export function useSaveCategory() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: CategoryInput & { id?: string }) => {
-      const values = {
-        name: input.name.trim(),
-        slug: input.slug.trim(),
-        parent_id: input.parent_id,
-        description: input.description.trim() || null,
-        is_active: input.is_active,
-      };
+      const { description, ...rest } = parseOrThrow(categorySchema, input);
+      const values = { ...rest, description: description || null };
       const { error } = id
         ? await supabase.from("categories").update(values).eq("id", id)
         : await supabase.from("categories").insert({ ...values, created_by: user?.id });

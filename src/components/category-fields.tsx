@@ -38,7 +38,6 @@ export function CategoryFields({ form, onChange, categories, excludedParentIds, 
         <Label htmlFor={`${idPrefix}name`}>Name</Label>
         <Input
           id={`${idPrefix}name`}
-          required
           value={form.name}
           onChange={(e) => onChange({ name: e.target.value, ...(slugTouched ? {} : { slug: slugify(e.target.value) }) })}
         />
@@ -47,9 +46,6 @@ export function CategoryFields({ form, onChange, categories, excludedParentIds, 
         <Label htmlFor={`${idPrefix}slug`}>Slug</Label>
         <Input
           id={`${idPrefix}slug`}
-          required
-          pattern="[a-z0-9]+(-[a-z0-9]+)*"
-          title="Lowercase letters, numbers and hyphens"
           value={form.slug}
           onChange={(e) => {
             setSlugTouched(true);

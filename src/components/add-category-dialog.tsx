@@ -41,7 +41,7 @@ export function AddCategoryDialog() {
         Add category
       </DialogTrigger>
       <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Add category</DialogTitle>
             <DialogDescription>Create a category to organise the question bank.</DialogDescription>

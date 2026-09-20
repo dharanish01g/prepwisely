@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
+import { emailSchema, firstIssue } from "@/lib/validation";
 
 interface AuthContextValue {
   user: User | null;
@@ -12,6 +14,9 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+// Only shape is checked here; length rules apply when a password is set, not when signing in to an existing account.
+const loginSchema = z.object({ email: emailSchema, password: z.string().min(1, "Password is required") });
 
 function friendlyError(message: string): string {
   if (/invalid login credentials/i.test(message)) return "Incorrect email or password.";
@@ -52,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       async signIn(email, password) {
+        const problem = firstIssue(loginSchema, { email, password });
+        if (problem) return problem;
         try {
           const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
           return error ? friendlyError(error.message) : null;

@@ -46,7 +46,7 @@ function EditUserForm({ user, onSaved, onClose }: { user: StaffUser; onSaved: ()
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
       <DialogHeader>
         <DialogTitle>Edit user</DialogTitle>
         <DialogDescription>Update details for {user.email}. Email and role can't be changed here.</DialogDescription>
@@ -55,7 +55,7 @@ function EditUserForm({ user, onSaved, onClose }: { user: StaffUser; onSaved: ()
       <div className="grid gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor="edit_full_name">Full name</Label>
-          <Input id="edit_full_name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          <Input id="edit_full_name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="edit_phone">Phone number</Label>

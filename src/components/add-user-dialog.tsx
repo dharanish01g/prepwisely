@@ -58,7 +58,7 @@ export function AddUserDialog({ onCreated }: { onCreated: () => void }) {
         Add user
       </DialogTrigger>
       <DialogContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Add user</DialogTitle>
             <DialogDescription>
@@ -69,18 +69,16 @@ export function AddUserDialog({ onCreated }: { onCreated: () => void }) {
           <div className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="full_name">Full name</Label>
-              <Input id="full_name" required value={form.full_name} onChange={(e) => set("full_name")(e.target.value)} />
+              <Input id="full_name" value={form.full_name} onChange={(e) => set("full_name")(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={form.email} onChange={(e) => set("email")(e.target.value)} />
+              <Input id="email" type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="password">Temporary password</Label>
               <Input
                 id="password"
-                required
-                minLength={8}
                 autoComplete="off"
                 placeholder="At least 8 characters"
                 value={form.password}
@@ -90,7 +88,6 @@ export function AddUserDialog({ onCreated }: { onCreated: () => void }) {
             <div className="grid gap-1.5">
               <Label htmlFor="role">Role</Label>
               <Select
-                required
                 value={form.role_id}
                 onValueChange={(v) => set("role_id")(v ?? "")}
                 items={roles.map((r) => ({ value: r.id, label: r.label }))}

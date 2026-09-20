@@ -134,3 +134,56 @@
     @apply font-sans;
     }
 }
+
+/* Rendered markdown (question text, options, explanations). Tailwind's preflight strips these defaults. */
+@layer components {
+  .markdown {
+    @apply text-sm leading-relaxed break-words;
+  }
+  .markdown > * + * {
+    @apply mt-2;
+  }
+  .markdown h1,
+  .markdown h2,
+  .markdown h3,
+  .markdown h4 {
+    @apply font-semibold;
+  }
+  .markdown h1 {
+    @apply text-lg;
+  }
+  .markdown h2 {
+    @apply text-base;
+  }
+  .markdown ul {
+    @apply list-disc pl-5;
+  }
+  .markdown ol {
+    @apply list-decimal pl-5;
+  }
+  .markdown a {
+    @apply text-primary underline underline-offset-2;
+  }
+  .markdown blockquote {
+    @apply border-l-2 pl-3 text-muted-foreground;
+  }
+  .markdown code {
+    @apply bg-muted px-1 py-0.5 font-mono text-xs;
+  }
+  .markdown pre {
+    @apply overflow-x-auto bg-muted p-3;
+  }
+  .markdown pre code {
+    @apply bg-transparent p-0;
+  }
+  .markdown table {
+    @apply w-full border-collapse text-xs;
+  }
+  .markdown th,
+  .markdown td {
+    @apply border px-2 py-1 text-left;
+  }
+  .markdown hr {
+    @apply border-border;
+  }
+}

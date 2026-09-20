@@ -8,12 +8,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { CategoriesScreen } from "@/screens/categories";
 import { ComingSoonScreen } from "@/screens/coming-soon";
+import { MyQuestionsScreen } from "@/screens/my-questions";
 import { UserManagementScreen } from "@/screens/user-management";
+import { WriteQuestionScreen } from "@/screens/write-question";
 
 export function DashboardScreen() {
   const { user } = useAuth();
   const { groups, loading } = useNav();
   const [requested, setRequested] = useState<string | null>(null);
+  // The question open in the editor (null = a new one). The key remounts the editor so that clicking
+  // "Write question" in the sidebar always starts from a blank form.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editorKey, setEditorKey] = useState(0);
 
   // Only pages in the user's own sidebar are reachable; anything else falls back to their first page.
   const allowed = useMemo(
@@ -24,9 +30,21 @@ export function DashboardScreen() {
   const page = requested && allowed.has(requested) ? requested : landing;
   const title = findNavItem(groups, page)?.title ?? "";
 
+  function navigate(next: string) {
+    setEditingId(null);
+    setEditorKey((k) => k + 1);
+    setRequested(next);
+  }
+
+  function openEditor(questionId: string) {
+    setEditingId(questionId);
+    setEditorKey((k) => k + 1);
+    setRequested("write-question");
+  }
+
   return (
     <SidebarProvider>
-      <AppSidebar activePage={page} onNavigate={setRequested} />
+      <AppSidebar activePage={page} onNavigate={navigate} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
@@ -50,6 +68,12 @@ export function DashboardScreen() {
           <UserManagementScreen />
         ) : page === "categories" ? (
           <CategoriesScreen />
+        ) : page === "write-question" ? (
+          <WriteQuestionScreen key={editorKey} questionId={editingId} onDone={() => navigate("my-questions")} />
+        ) : page === "my-questions" ? (
+          <MyQuestionsScreen mode="all" onEdit={openEditor} />
+        ) : page === "reviewer-feedback" ? (
+          <MyQuestionsScreen mode="feedback" onEdit={openEditor} />
         ) : page === "dashboard" ? (
           <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
             <h1 className="text-2xl font-semibold">Dashboard</h1>

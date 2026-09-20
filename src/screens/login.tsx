@@ -26,7 +26,7 @@ export function LoginScreen() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-5">
+      <form noValidate onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-5">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold">prepwisely</h1>
           <p className="text-sm text-muted-foreground">Sign in to continue.</p>
@@ -41,7 +41,6 @@ export function LoginScreen() {
             type="email"
             autoComplete="username"
             autoFocus
-            required
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
             placeholder="you@example.com"
@@ -57,7 +56,6 @@ export function LoginScreen() {
             id="password"
             type="password"
             autoComplete="current-password"
-            required
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             disabled={submitting}

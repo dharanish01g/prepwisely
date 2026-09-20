@@ -58,7 +58,7 @@ function ResetPasswordForm({ user, onClose }: { user: StaffUser; onClose: () => 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
       <DialogHeader>
         <DialogTitle>Reset password</DialogTitle>
         <DialogDescription>
@@ -70,8 +70,6 @@ function ResetPasswordForm({ user, onClose }: { user: StaffUser; onClose: () => 
         <Label htmlFor="reset_password">New password</Label>
         <Input
           id="reset_password"
-          required
-          minLength={8}
           autoComplete="off"
           placeholder="At least 8 characters"
           value={password}

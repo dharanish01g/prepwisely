@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { FunctionsHttpError } from "@supabase/supabase-js";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
+import { emailSchema, newPasswordSchema, parseOrThrow } from "@/lib/validation";
 
 export interface StaffUser {
   id: string;
@@ -72,10 +74,26 @@ export interface StaffUserDetails {
   address?: string;
 }
 
+const optionalText = z.string().trim().optional();
+
+const staffUserDetailsSchema = z.object({
+  full_name: z.string().trim().min(1, "Full name is required"),
+  phone: optionalText,
+  address: optionalText,
+});
+
+const newStaffUserSchema = staffUserDetailsSchema.extend({
+  email: emailSchema,
+  password: newPasswordSchema,
+  role_id: z.string().min(1, "Select a role"),
+});
+
+// Each call validates first and throws an Error with the first problem, which the dialogs already display.
 export const updateUser = (userId: string, details: StaffUserDetails) =>
-  callAdminUsers({ action: "update", user_id: userId, ...details });
+  callAdminUsers({ action: "update", user_id: userId, ...parseOrThrow(staffUserDetailsSchema, details) });
 
 export const resetPassword = (userId: string, password: string) =>
-  callAdminUsers({ action: "reset_password", user_id: userId, password });
+  callAdminUsers({ action: "reset_password", user_id: userId, password: parseOrThrow(newPasswordSchema, password) });
 
-export const createUser =(user: NewStaffUser) => callAdminUsers({ action: "create", ...user });
+export const createUser = (user: NewStaffUser) =>
+  callAdminUsers({ action: "create", ...parseOrThrow(newStaffUserSchema, user) });
