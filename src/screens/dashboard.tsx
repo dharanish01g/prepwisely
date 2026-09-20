@@ -9,6 +9,10 @@ import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { CategoriesScreen } from "@/screens/categories";
 import { ComingSoonScreen } from "@/screens/coming-soon";
 import { MyQuestionsScreen } from "@/screens/my-questions";
+import { ProfileScreen } from "@/screens/profile";
+import { QuestionBankScreen } from "@/screens/question-bank";
+import { ReviewHistoryScreen } from "@/screens/review-history";
+import { ReviewQueueScreen } from "@/screens/review-queue";
 import { UserManagementScreen } from "@/screens/user-management";
 import { WriteQuestionScreen } from "@/screens/write-question";
 
@@ -66,12 +70,20 @@ export function DashboardScreen() {
           </div>
         ) : page === "user-management" ? (
           <UserManagementScreen />
+        ) : page === "profile" ? (
+          <ProfileScreen />
         ) : page === "categories" ? (
           <CategoriesScreen />
         ) : page === "write-question" ? (
           <WriteQuestionScreen key={editorKey} questionId={editingId} onDone={() => navigate("my-questions")} />
         ) : page === "my-questions" ? (
           <MyQuestionsScreen mode="all" onEdit={openEditor} />
+        ) : page === "review-queue" ? (
+          <ReviewQueueScreen />
+        ) : page === "review-history" ? (
+          <ReviewHistoryScreen />
+        ) : page === "question-bank" ? (
+          <QuestionBankScreen />
         ) : page === "reviewer-feedback" ? (
           <MyQuestionsScreen mode="feedback" onEdit={openEditor} />
         ) : page === "dashboard" ? (

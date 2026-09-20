@@ -72,7 +72,7 @@ export const newOption = (): OptionInput => ({ id: crypto.randomUUID(), body: ""
 // PostgREST errors aren't `Error` instances; normalise so callers can show `.message`.
 const toError = (error: { message: string }) => new Error(error.message);
 
-const QUESTIONS_KEY = ["questions"] as const;
+export const QUESTIONS_KEY = ["questions"] as const;
 
 export { validateDraft, validateForSubmit } from "@/lib/question-schema";
 

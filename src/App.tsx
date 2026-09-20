@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { UpdateBanner } from "@/components/update-banner";
+import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { useUpdater } from "@/hooks/use-updater";
 import { DashboardScreen } from "@/screens/dashboard";
@@ -40,6 +41,7 @@ function App() {
       <AuthProvider>
         <Screens />
         <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} />
+        <Toaster />
       </AuthProvider>
     </QueryClientProvider>
   );

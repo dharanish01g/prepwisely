@@ -37,3 +37,25 @@ export const submitSchema = draftSchema.extend({
 
 export const validateDraft = (q: unknown) => firstIssue(draftSchema, q);
 export const validateForSubmit = (q: unknown) => firstIssue(submitSchema, q);
+
+export const REVIEW_DECISIONS = ["approved", "changes_requested", "rejected"] as const;
+export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
+
+/** A reviewer's decision. Anything other than approving needs a comment so the creator knows what to fix. */
+export const reviewDecisionSchema = z
+  .object({
+    decision: z.enum(REVIEW_DECISIONS, { error: "Choose a decision" }),
+    comment: z.string(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.decision !== "approved" && !value.comment.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["comment"],
+        message: value.decision === "rejected" ? "Explain why this question is rejected" : "Say what needs to change",
+      });
+    }
+  });
+
+export const validateReviewDecision = (decision: ReviewDecision | null, comment: string) =>
+  firstIssue(reviewDecisionSchema, { decision, comment });

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -133,4 +134,10 @@ export function selfAndDescendantIds(categories: Category[], id: string): Set<st
     }
   }
   return ids;
+}
+
+/** Category id -> "Parent › Child", for showing where a question belongs. */
+export function useCategoryPaths() {
+  const { data: categories = [] } = useCategories();
+  return useMemo(() => new Map(buildCategoryRows(categories).map((r) => [r.category.id, r.path])), [categories]);
 }
