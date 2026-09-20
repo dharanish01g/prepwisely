@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { ImportQuestionsDialog } from "@/components/import-questions-dialog";
+import { RefreshButton } from "@/components/refresh-button";
 import { QuestionStatusBadge } from "@/components/question-status-badge";
 import { TableSkeletonRows } from "@/components/table-skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { isLocked, type QuestionStatus, STATUS_META, useMyQuestions } from "@/lib/questions";
+import { isLocked, type QuestionStatus, STATUS_META, useMyQuestions, useRefreshQuestions } from "@/lib/questions";
 
 const ALL = "all";
 const FEEDBACK_STATUSES: QuestionStatus[] = ["changes_requested", "rejected"];
@@ -26,7 +27,8 @@ interface MyQuestionsScreenProps {
 export function MyQuestionsScreen({ mode, onEdit }: MyQuestionsScreenProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState(ALL);
-  const { data: questions = [], isPending, error } = useMyQuestions();
+  const { data: questions = [], isPending, isFetching, error } = useMyQuestions();
+  const refresh = useRefreshQuestions();
   const feedbackMode = mode === "feedback";
 
   const filtered = useMemo(() => {
@@ -52,7 +54,10 @@ export function MyQuestionsScreen({ mode, onEdit }: MyQuestionsScreenProps) {
               : "Everything you've written, and where each question is in review."}
           </p>
         </div>
-        {!feedbackMode && <ImportQuestionsDialog />}
+        <div className="flex gap-2">
+          <RefreshButton onRefresh={() => void refresh()} refreshing={isFetching} />
+          {!feedbackMode && <ImportQuestionsDialog />}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

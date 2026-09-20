@@ -77,6 +77,12 @@ const QUESTIONS_KEY = ["questions"] as const;
 export { validateDraft, validateForSubmit } from "@/lib/question-schema";
 
 
+/** Re-fetches every questions query (lists and open editors) so changes made elsewhere show up. */
+export function useRefreshQuestions() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: QUESTIONS_KEY });
+}
+
 /** The signed-in creator's own questions, newest activity first. */
 export function useMyQuestions() {
   const { user } = useAuth();
