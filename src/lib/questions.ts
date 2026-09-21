@@ -56,6 +56,8 @@ export interface QuestionInput {
   title: string;
   description: string;
   category_id: string | null;
+  /** The brief this question is written for, if any. */
+  brief_id: string | null;
   difficulty: Difficulty | null;
   options: OptionInput[];
 }
@@ -123,7 +125,7 @@ export function useQuestion(id: string | null) {
       const { data, error } = await supabase
         .from("questions")
         .select(
-          "id, title, description, category_id, difficulty, status, archived_at, options:question_options(id, position, body, explanation, is_correct), reviews:question_reviews(decision, comment, created_at)",
+          "id, title, description, category_id, brief_id, difficulty, status, archived_at, options:question_options(id, position, body, explanation, is_correct), reviews:question_reviews(decision, comment, created_at)",
         )
         .eq("id", id!)
         .order("position", { referencedTable: "question_options" })
@@ -136,6 +138,7 @@ export function useQuestion(id: string | null) {
         title: data.title,
         description: data.description,
         category_id: data.category_id,
+        brief_id: data.brief_id,
         difficulty: data.difficulty,
         status: data.status,
         archived: data.archived_at !== null,
@@ -168,6 +171,7 @@ export function useSaveQuestion() {
         title: input.title.trim(),
         description: input.description,
         category_id: input.category_id,
+        brief_id: input.brief_id,
         difficulty: input.difficulty,
       };
 

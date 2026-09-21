@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { InfoIcon, Loader2Icon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Markdown, MarkdownField } from "@/components/markdown";
 import { QuestionStatusBadge } from "@/components/question-status-badge";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { buildCategoryRows, useCategories } from "@/lib/categories";
+import { useBriefs } from "@/lib/briefs";
+import { buildCategoryRows, selfAndDescendantIds, useCategories } from "@/lib/categories";
 import {
   DIFFICULTIES,
   type Difficulty,
@@ -24,11 +25,15 @@ import {
 interface WriteQuestionScreenProps {
   /** Question to edit; null/undefined starts a new draft. */
   questionId?: string | null;
+  /** Brief to start a new question under (from "My assignments"). */
+  defaultBriefId?: string | null;
   /** Called after the question has been submitted for review. */
   onDone: () => void;
 }
 
-export function WriteQuestionScreen({ questionId, onDone }: WriteQuestionScreenProps) {
+const NO_BRIEF = "none";
+
+export function WriteQuestionScreen({ questionId, defaultBriefId, onDone }: WriteQuestionScreenProps) {
   const { data, isPending, error } = useQuestion(questionId ?? null);
 
   if (questionId && isPending) {
@@ -41,14 +46,15 @@ export function WriteQuestionScreen({ questionId, onDone }: WriteQuestionScreenP
   if (questionId && error) {
     return <p className="p-4 pt-0 text-sm text-destructive">Could not load this question: {error.message}</p>;
   }
-  return <QuestionEditor key={data?.id ?? "new"} initial={data ?? null} onDone={onDone} />;
+  return <QuestionEditor key={data?.id ?? "new"} initial={data ?? null} defaultBriefId={defaultBriefId ?? null} onDone={onDone} />;
 }
 
-function QuestionEditor({ initial, onDone }: { initial: QuestionDetail | null; onDone: () => void }) {
+function QuestionEditor({ initial, defaultBriefId, onDone }: { initial: QuestionDetail | null; defaultBriefId: string | null; onDone: () => void }) {
   const [id, setId] = useState(initial?.id ?? null);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [categoryId, setCategoryId] = useState<string | null>(initial?.category_id ?? null);
+  const [briefId, setBriefId] = useState<string | null>(initial?.brief_id ?? (initial ? null : defaultBriefId));
   const [difficulty, setDifficulty] = useState<Difficulty | null>(initial?.difficulty ?? null);
   const [options, setOptions] = useState<OptionInput[]>(initial?.options.length ? initial.options : [newOption(), newOption()]);
   // Option ids that exist in the database; anything in here but missing from the form gets deleted on save.
@@ -57,6 +63,7 @@ function QuestionEditor({ initial, onDone }: { initial: QuestionDetail | null; o
 
   const { data: live } = useQuestion(id);
   const { data: categories = [] } = useCategories();
+  const { data: briefs = [] } = useBriefs();
   const save = useSaveQuestion();
   const submit = useSubmitQuestion();
   const busy = save.isPending || submit.isPending;
@@ -66,15 +73,36 @@ function QuestionEditor({ initial, onDone }: { initial: QuestionDetail | null; o
   const feedback = live?.latest_review ?? initial?.latest_review ?? null;
   const locked = isLocked(status, archived);
 
+  const brief = briefs.find((b) => b.id === briefId);
+  // Only open briefs can be newly picked; keep showing the current one even if it has since closed.
+  const briefItems = [
+    { value: NO_BRIEF, label: "No brief" },
+    ...briefs.filter((b) => b.status === "open" || b.id === briefId).map((b) => ({ value: b.id, label: b.title })),
+  ];
+  // With a brief chosen, the question must sit inside the brief's topic (the database enforces it too).
+  const allowedCategories = useMemo(() => (brief ? selfAndDescendantIds(categories, brief.category_id) : null), [brief, categories]);
+
   const categoryItems = useMemo(
     () =>
       buildCategoryRows(categories)
-        .filter((r) => r.category.is_active || r.category.id === categoryId)
+        .filter((r) => (r.category.is_active || r.category.id === categoryId) && (!allowedCategories || allowedCategories.has(r.category.id)))
         .map((r) => ({ value: r.category.id, label: r.path })),
-    [categories, categoryId],
+    [categories, categoryId, allowedCategories],
   );
 
-  const input = { title, description, category_id: categoryId, difficulty, options };
+  // Arriving from "My assignments" on a new question: start with the brief's topic.
+  useEffect(() => {
+    if (!initial && !categoryId && brief) setCategoryId(brief.category_id);
+  }, [initial, categoryId, brief]);
+
+  function chooseBrief(value: string | null) {
+    const next = !value || value === NO_BRIEF ? null : value;
+    setBriefId(next);
+    const chosen = briefs.find((b) => b.id === next);
+    if (chosen && !(categoryId && selfAndDescendantIds(categories, chosen.category_id).has(categoryId))) setCategoryId(chosen.category_id);
+  }
+
+  const input = { title, description, category_id: categoryId, brief_id: briefId, difficulty, options };
 
   function updateOption(optionId: string, patch: Partial<OptionInput>) {
     setOptions((list) => list.map((o) => (o.id === optionId ? { ...o, ...patch } : o)));
@@ -174,6 +202,25 @@ function QuestionEditor({ initial, onDone }: { initial: QuestionDetail | null; o
           onChange={setDescription}
           disabled={locked || busy}
         />
+
+        {briefItems.length > 1 && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="question_brief">Brief (optional)</Label>
+            <Select value={briefId ?? NO_BRIEF} onValueChange={chooseBrief} items={briefItems}>
+              <SelectTrigger id="question_brief" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {briefItems.map((b) => (
+                  <SelectItem key={b.value} value={b.value}>
+                    {b.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Link this question to something you were assigned so it counts towards its target.</p>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">

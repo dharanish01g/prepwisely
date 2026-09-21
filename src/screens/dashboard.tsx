@@ -7,8 +7,10 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
+import { BriefsScreen } from "@/screens/briefs";
 import { CategoriesScreen } from "@/screens/categories";
 import { ComingSoonScreen } from "@/screens/coming-soon";
+import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
 import { ProfileScreen } from "@/screens/profile";
 import { QuestionBankScreen } from "@/screens/question-bank";
@@ -25,6 +27,8 @@ export function DashboardScreen() {
   // "Write question" in the sidebar always starts from a blank form.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorKey, setEditorKey] = useState(0);
+  // Set when the editor was opened from a brief ("My assignments" → Write a question).
+  const [editorBriefId, setEditorBriefId] = useState<string | null>(null);
 
   // Only pages in the user's own sidebar are reachable; anything else falls back to their first page.
   const allowed = useMemo(
@@ -37,12 +41,21 @@ export function DashboardScreen() {
 
   function navigate(next: string) {
     setEditingId(null);
+    setEditorBriefId(null);
     setEditorKey((k) => k + 1);
     setRequested(next);
   }
 
+  function writeForBrief(briefId: string) {
+    setEditingId(null);
+    setEditorBriefId(briefId);
+    setEditorKey((k) => k + 1);
+    setRequested("write-question");
+  }
+
   function openEditor(questionId: string) {
     setEditingId(questionId);
+    setEditorBriefId(null);
     setEditorKey((k) => k + 1);
     setRequested("write-question");
   }
@@ -77,7 +90,11 @@ export function DashboardScreen() {
         ) : page === "categories" ? (
           <CategoriesScreen />
         ) : page === "write-question" ? (
-          <WriteQuestionScreen key={editorKey} questionId={editingId} onDone={() => navigate("my-questions")} />
+          <WriteQuestionScreen key={editorKey} questionId={editingId} defaultBriefId={editorBriefId} onDone={() => navigate("my-questions")} />
+        ) : page === "briefs" ? (
+          <BriefsScreen />
+        ) : page === "my-assignments" ? (
+          <MyAssignmentsScreen onWrite={writeForBrief} />
         ) : page === "my-questions" ? (
           <MyQuestionsScreen mode="all" onEdit={openEditor} />
         ) : page === "review-queue" ? (
