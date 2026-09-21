@@ -10,13 +10,14 @@ interface UpdateBannerProps {
   state: UpdateState;
   onInstall: () => void;
   onDismiss: () => void;
+  onLater: () => void;
 }
 
 /**
  * Non-blocking update notification. Shows when an update is found and
  * downloading, when it's ready to apply, and the result of a manual check.
  */
-export function UpdateBanner({ state, onInstall, onDismiss }: UpdateBannerProps) {
+export function UpdateBanner({ state, onInstall, onDismiss, onLater }: UpdateBannerProps) {
   const autoHide = state.status === "up-to-date" || state.status === "error";
 
   useEffect(() => {
@@ -54,10 +55,10 @@ export function UpdateBanner({ state, onInstall, onDismiss }: UpdateBannerProps)
       break;
     case "ready":
       title = `Update ${state.version} is ready`;
-      description = "Restart to apply it.";
+      description = "Restart to apply it, or it installs on next launch.";
       actions = (
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={onDismiss}>
+          <Button variant="ghost" size="sm" onClick={onLater}>
             Later
           </Button>
           <Button size="sm" onClick={onInstall}>

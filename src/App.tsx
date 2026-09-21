@@ -43,7 +43,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Screens />
-        <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} />
+        <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} onLater={updater.later} />
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>

@@ -15,8 +15,28 @@ const STARTUP_DELAY_MS = 5_000;
 const RECHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const CHECK_TIMEOUT_MS = 10_000;
 
+// Set when the user picks "Later"; the next launch then installs the update without asking again.
+const DEFERRED_KEY = "prepwisely.update-deferred";
+
 let pending: Update | null = null;
 let busy = false;
+
+function isDeferred(): boolean {
+  try {
+    return localStorage.getItem(DEFERRED_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function setDeferred(version: string | null) {
+  try {
+    if (version) localStorage.setItem(DEFERRED_KEY, version);
+    else localStorage.removeItem(DEFERRED_KEY);
+  } catch {
+    // Storage unavailable: "Later" just behaves like before and the banner returns next launch.
+  }
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -37,9 +57,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 /**
  * `manual` checks (user clicked "Check for updates") also report checking,
  * up-to-date and error states. Background checks only surface an update
- * once one is found.
+ * once one is found. `autoInstall` applies the update as soon as it has
+ * downloaded instead of waiting for the user.
  */
-async function checkAndDownload(onState: (state: UpdateState) => void, manual = false) {
+async function checkAndDownload(onState: (state: UpdateState) => void, manual = false, autoInstall = false) {
   if (pending) {
     if (manual) onState({ status: "ready", version: pending.version, notes: pending.body });
     return;
@@ -50,6 +71,7 @@ async function checkAndDownload(onState: (state: UpdateState) => void, manual = 
     if (manual) onState({ status: "checking" });
     const update = await withTimeout(check(), CHECK_TIMEOUT_MS);
     if (!update) {
+      setDeferred(null);
       if (manual) onState({ status: "up-to-date", version: await getVersion() });
       else onState({ status: "idle" });
       return;
@@ -72,6 +94,10 @@ async function checkAndDownload(onState: (state: UpdateState) => void, manual = 
     });
 
     pending = update;
+    if (autoInstall) {
+      await installAndRelaunch(onState);
+      return;
+    }
     onState({ status: "ready", version: update.version, notes: update.body });
   } catch (err) {
     console.warn("[updater] update failed:", err);
@@ -90,10 +116,15 @@ export function checkNow(onState: (state: UpdateState) => void) {
 /**
  * Checks for an update shortly after launch and then periodically, downloading
  * it silently. `onState` fires `ready` once the package is on disk and waiting
- * for the user to apply it. Returns a cleanup function.
+ * for the user to apply it. If the user chose "Later" last time, the launch
+ * check runs immediately and installs the update on its own. Returns a cleanup function.
  */
 export function startBackgroundUpdates(onState: (state: UpdateState) => void): () => void {
-  const first = setTimeout(() => void checkAndDownload(onState), STARTUP_DELAY_MS);
+  const deferred = isDeferred();
+  const first = setTimeout(
+    () => void checkAndDownload(onState, false, deferred),
+    deferred ? 0 : STARTUP_DELAY_MS,
+  );
   const interval = setInterval(() => void checkAndDownload(onState), RECHECK_INTERVAL_MS);
   return () => {
     clearTimeout(first);
@@ -101,9 +132,15 @@ export function startBackgroundUpdates(onState: (state: UpdateState) => void): (
   };
 }
 
+/** Remembers that the ready update was postponed, so the next launch installs it. */
+export function deferUpdate() {
+  if (pending) setDeferred(pending.version);
+}
+
 /** Installs the already-downloaded update and restarts the app. */
 export async function installAndRelaunch(onState: (state: UpdateState) => void) {
   if (!pending) return;
+  setDeferred(null);
   onState({ status: "installing", version: pending.version });
   try {
     await pending.install();
