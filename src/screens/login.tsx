@@ -2,13 +2,26 @@ import { useEffect, useState, type FormEvent } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Loader2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import logo from "@/assets/logo.png";
 
+const REMEMBERED_EMAIL_KEY = "prepwisely.remembered-email";
+
+function readRememberedEmail(): string {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function LoginScreen() {
   const { signIn } = useAuth();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(readRememberedEmail);
+  const [remember, setRemember] = useState(() => readRememberedEmail() !== "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +43,13 @@ export function LoginScreen() {
     if (message) {
       setError(message);
       setSubmitting(false);
+      return;
+    }
+    try {
+      if (remember) localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+      else localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+    } catch {
+      // Storage unavailable: signing in still works, the email just isn't remembered.
     }
   }
 
@@ -44,14 +64,14 @@ export function LoginScreen() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-xs font-medium">
+            <Label htmlFor="email" className="font-medium">
               Email
-            </label>
+            </Label>
             <Input
               id="email"
               type="email"
               autoComplete="username"
-              autoFocus
+              autoFocus={!email}
               value={email}
               onChange={(e) => setEmail(e.currentTarget.value)}
               placeholder="you@example.com"
@@ -60,17 +80,30 @@ export function LoginScreen() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-xs font-medium">
+            <Label htmlFor="password" className="font-medium">
               Password
-            </label>
+            </Label>
             <Input
               id="password"
               type="password"
               autoComplete="current-password"
+            autoFocus={!!email}
               value={password}
               onChange={(e) => setPassword(e.currentTarget.value)}
               disabled={submitting}
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="remember"
+              checked={remember}
+              onCheckedChange={setRemember}
+              disabled={submitting}
+            />
+            <Label htmlFor="remember" className="cursor-pointer">
+              Remember me
+            </Label>
           </div>
 
           {error && (
