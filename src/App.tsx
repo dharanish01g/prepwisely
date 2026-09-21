@@ -5,6 +5,7 @@ import { UpdateBanner } from "@/components/update-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { useUpdater } from "@/hooks/use-updater";
+import { clearCachedRoles } from "@/lib/roles";
 import { DashboardScreen } from "@/screens/dashboard";
 import { LoginScreen } from "@/screens/login";
 import "./App.css";
@@ -19,7 +20,9 @@ function Screens() {
 
   // Drop cached data on sign-out so the next user never sees the previous user's data.
   useEffect(() => {
-    if (!loading && !user) queryClient.clear();
+    if (loading || user) return;
+    queryClient.clear();
+    clearCachedRoles();
   }, [loading, user, queryClient]);
 
   if (loading) {

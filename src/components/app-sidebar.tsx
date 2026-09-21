@@ -188,14 +188,24 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps) {
   const { signOut } = useAuth()
-  const { groups, loading } = useNav()
+  const { groups, loading, offline, noAccess } = useNav()
   const { data: myRoleIds = [] } = useMyRoleIds()
   const { roleLabel, loading: rolesLoading } = useRoles()
   const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
 
   const renderItem = (item: NavItem) => (
     <SidebarMenuItem key={item.id}>
-      <SidebarMenuButton tooltip={item.title} isActive={activePage === item.id} onClick={() => onNavigate(item.id)}>
+      <SidebarMenuButton
+        tooltip={item.title}
+        isActive={activePage === item.id}
+        // Not `disabled`: the tooltip trigger swallows that prop and never sets it on the button.
+        aria-disabled={offline || undefined}
+        tabIndex={offline ? -1 : undefined}
+        className={offline ? "pointer-events-none opacity-50" : undefined}
+        onClick={() => {
+          if (!offline) onNavigate(item.id)
+        }}
+      >
         <item.icon />
         <span>{item.title}</span>
       </SidebarMenuButton>
@@ -241,6 +251,10 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroup>
+        ) : noAccess ? (
+          <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+            <p className="px-2 text-xs text-muted-foreground">No pages are assigned to your account yet. Contact support.</p>
           </SidebarGroup>
         ) : (
           groups.map((group) => (

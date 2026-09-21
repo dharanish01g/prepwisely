@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Loader2Icon } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ConnectionBanner } from "@/components/connection-banner";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -18,7 +19,7 @@ import { WriteQuestionScreen } from "@/screens/write-question";
 
 export function DashboardScreen() {
   const { user } = useAuth();
-  const { groups, loading } = useNav();
+  const { groups, loading, offline, failed, retrying, retry } = useNav();
   const [requested, setRequested] = useState<string | null>(null);
   // The question open in the editor (null = a new one). The key remounts the editor so that clicking
   // "Write question" in the sidebar always starts from a blank form.
@@ -50,6 +51,7 @@ export function DashboardScreen() {
     <SidebarProvider>
       <AppSidebar activePage={page} onNavigate={navigate} />
       <SidebarInset>
+        <ConnectionBanner offline={offline} failed={failed} retrying={retrying} onRetry={retry} />
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />

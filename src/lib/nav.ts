@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
+import { onlineManager } from "@tanstack/react-query";
 import {
   BellIcon,
   BookOpenIcon,
@@ -191,10 +192,36 @@ function buildNav(roleIds: string[]): NavGroup[] {
   return groups;
 }
 
+/** Live browser online/offline state (the same signal React Query uses to pause requests). */
+export function useOnline() {
+  return useSyncExternalStore(
+    (onChange) => onlineManager.subscribe(onChange),
+    () => onlineManager.isOnline(),
+  );
+}
+
+// Failed requests with no server response ("Failed to fetch", Safari's "Load failed", ...) mean no connection.
+const isNetworkError = (error: unknown) =>
+  error instanceof Error ? /fetch|network|load failed/i.test(error.message) : false;
+
 export function useNav() {
-  const { data: roleIds, isPending } = useMyRoleIds();
+  const { data: roleIds, isPending, isError, error, isFetching, refetch } = useMyRoleIds();
+  const online = useOnline();
   const groups = useMemo(() => buildNav(roleIds ?? []), [roleIds]);
-  return { groups, loading: isPending };
+  // `online` covers a dropped connection; the query error covers wifi that is up but has no internet.
+  const offline = !online || (isError && isNetworkError(error));
+  return {
+    groups,
+    /** True only while there's nothing to show yet and a request is actually able to run. */
+    loading: isPending && !offline,
+    offline,
+    /** Roles couldn't be loaded for a reason other than being offline; `retry` tries again. */
+    failed: isError && !offline,
+    /** Roles finished loading and this user has none. */
+    noAccess: roleIds !== undefined && roleIds.length === 0 && !isError,
+    retrying: isFetching,
+    retry: () => void refetch(),
+  };
 }
 
 export function findNavItem(groups: NavGroup[], id: string): NavItem | undefined {

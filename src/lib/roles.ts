@@ -37,16 +37,54 @@ export function useRoles() {
   return { roles, loading, roleLabel };
 }
 
+// Last known role ids, kept per user so the sidebar can still be drawn (disabled) when the app starts offline.
+// UI-only: the database enforces real access with RLS, so a stale copy can't grant anything.
+const ROLES_CACHE_PREFIX = "prepwisely.my-roles.";
+
+function readCachedRoles(userId: string | undefined): string[] | undefined {
+  if (!userId) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(ROLES_CACHE_PREFIX + userId) ?? "null");
+    return Array.isArray(parsed) && parsed.every((r) => typeof r === "string") ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedRoles(userId: string, roleIds: string[]) {
+  try {
+    localStorage.setItem(ROLES_CACHE_PREFIX + userId, JSON.stringify(roleIds));
+  } catch {
+    // Storage full or blocked; the sidebar just won't survive an offline start.
+  }
+}
+
+/** Forget every cached role list. Call on sign-out so the next person on this machine doesn't see them. */
+export function clearCachedRoles() {
+  try {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(ROLES_CACHE_PREFIX));
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // Storage blocked; nothing was cached.
+  }
+}
+
 /** Role ids of the signed-in user (RLS lets each user read their own roles). */
 export function useMyRoleIds() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["my-roles", user?.id],
     enabled: !!user,
+    // Start from the last known roles, but treat them as stale (updatedAt 0) so they are refetched right away.
+    // If that refetch fails, the query errors but keeps this data.
+    initialData: () => readCachedRoles(user?.id),
+    initialDataUpdatedAt: 0,
     queryFn: async (): Promise<string[]> => {
       const { data, error } = await supabase.from("user_roles").select("role_id").eq("user_id", user!.id);
       if (error) throw error;
-      return data.map((r) => r.role_id);
+      const roleIds = data.map((r) => r.role_id);
+      writeCachedRoles(user!.id, roleIds);
+      return roleIds;
     },
   });
 }
