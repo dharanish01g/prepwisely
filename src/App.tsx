@@ -14,7 +14,7 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
 });
 
-function Screens() {
+function Screens({ updater }: { updater: ReturnType<typeof useUpdater> }) {
   const { user, loading } = useAuth();
   const queryClient = useQueryClient();
 
@@ -33,7 +33,7 @@ function Screens() {
     );
   }
 
-  return user ? <DashboardScreen /> : <LoginScreen />;
+  return user ? <DashboardScreen updater={updater} /> : <LoginScreen />;
 }
 
 function App() {
@@ -42,7 +42,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Screens />
+        <Screens updater={updater} />
         <UpdateBanner state={updater.state} onInstall={updater.install} onDismiss={updater.dismiss} onLater={updater.later} />
         <Toaster />
       </AuthProvider>

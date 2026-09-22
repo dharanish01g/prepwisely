@@ -66,7 +66,6 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       items: [
         item("colleges", "Colleges", Building2Icon),
         item("user-management", "User Management", UsersIcon),
-        item("settings", "Settings", Settings2Icon),
       ],
     },
     { label: "Content Management", items: [item("categories", "Categories", LayersIcon)] },
@@ -175,6 +174,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
 export const COMMON_ITEMS: NavItem[] = [
   item("profile", "Profile", UserIcon),
   item("notifications", "Notifications", BellIcon),
+  item("settings", "Settings", Settings2Icon),
 ];
 
 // A user can hold several roles: show every role's groups, and never repeat a page.

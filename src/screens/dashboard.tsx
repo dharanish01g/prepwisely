@@ -6,6 +6,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/co
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import type { useUpdater } from "@/hooks/use-updater";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { BriefsScreen } from "@/screens/briefs";
 import { CategoriesScreen } from "@/screens/categories";
@@ -19,10 +20,11 @@ import { QualityGuidelinesScreen } from "@/screens/quality-guidelines";
 import { QuestionBankScreen } from "@/screens/question-bank";
 import { ReviewHistoryScreen } from "@/screens/review-history";
 import { ReviewQueueScreen } from "@/screens/review-queue";
+import { SettingsScreen } from "@/screens/settings";
 import { UserManagementScreen } from "@/screens/user-management";
 import { WriteQuestionScreen } from "@/screens/write-question";
 
-export function DashboardScreen() {
+export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpdater> }) {
   const { user } = useAuth();
   const { groups, loading, offline, failed, retrying, retry } = useNav();
   const [requested, setRequested] = useState<string | null>(null);
@@ -90,6 +92,8 @@ export function DashboardScreen() {
           <UserManagementScreen />
         ) : page === "profile" ? (
           <ProfileScreen />
+        ) : page === "settings" ? (
+          <SettingsScreen updater={updater} />
         ) : page === "categories" ? (
           <CategoriesScreen />
         ) : page === "write-question" ? (
