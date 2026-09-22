@@ -83,6 +83,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       ],
     },
     { label: "Team", items: [item("content-team", "Content team", UsersIcon)] },
+    { label: "Reference", items: [item("quality-guidelines", "Quality guidelines", BookOpenIcon)] },
   ],
   content_creator: [
     {
@@ -94,6 +95,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("reviewer-feedback", "Reviewer feedback", MessageSquareIcon),
       ],
     },
+    { label: "Reference", items: [item("quality-guidelines", "Quality guidelines", BookOpenIcon)] },
   ],
   content_reviewer: [
     {

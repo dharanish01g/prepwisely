@@ -13,6 +13,7 @@ import { ComingSoonScreen } from "@/screens/coming-soon";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
 import { ProfileScreen } from "@/screens/profile";
+import { QualityGuidelinesScreen } from "@/screens/quality-guidelines";
 import { QuestionBankScreen } from "@/screens/question-bank";
 import { ReviewHistoryScreen } from "@/screens/review-history";
 import { ReviewQueueScreen } from "@/screens/review-queue";
@@ -105,6 +106,8 @@ export function DashboardScreen() {
           <QuestionBankScreen />
         ) : page === "reviewer-feedback" ? (
           <MyQuestionsScreen mode="feedback" onEdit={openEditor} />
+        ) : page === "quality-guidelines" ? (
+          <QualityGuidelinesScreen />
         ) : page === "dashboard" ? (
           <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
             <h1 className="text-2xl font-semibold">Dashboard</h1>
