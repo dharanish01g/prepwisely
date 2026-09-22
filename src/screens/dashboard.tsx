@@ -10,6 +10,7 @@ import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { BriefsScreen } from "@/screens/briefs";
 import { CategoriesScreen } from "@/screens/categories";
 import { ComingSoonScreen } from "@/screens/coming-soon";
+import { ContentTeamScreen } from "@/screens/content-team";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
 import { ProfileScreen } from "@/screens/profile";
@@ -94,6 +95,8 @@ export function DashboardScreen() {
           <WriteQuestionScreen key={editorKey} questionId={editingId} defaultBriefId={editorBriefId} onDone={() => navigate("my-questions")} />
         ) : page === "briefs" ? (
           <BriefsScreen />
+        ) : page === "content-team" ? (
+          <ContentTeamScreen />
         ) : page === "my-assignments" ? (
           <MyAssignmentsScreen onWrite={writeForBrief} />
         ) : page === "my-questions" ? (

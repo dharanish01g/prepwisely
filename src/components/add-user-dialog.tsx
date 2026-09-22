@@ -19,8 +19,24 @@ import { createUser } from "@/lib/users";
 
 const EMPTY = { full_name: "", email: "", password: "", role_id: "", phone: "", address: "" };
 
-export function AddUserDialog({ onCreated }: { onCreated: () => void }) {
-  const { roles } = useRoles();
+interface AddUserDialogProps {
+  onCreated: () => void;
+  /** Restricts the role dropdown to these role ids. Omit to offer every role (superadmin's User Management). */
+  allowedRoleIds?: string[];
+  triggerLabel?: string;
+  title?: string;
+  description?: string;
+}
+
+export function AddUserDialog({
+  onCreated,
+  allowedRoleIds,
+  triggerLabel = "Add user",
+  title = "Add user",
+  description = "Create a staff account. Share the email and temporary password with them; they can change it after signing in.",
+}: AddUserDialogProps) {
+  const { roles: allRoles } = useRoles();
+  const roles = allowedRoleIds ? allRoles.filter((r) => allowedRoleIds.includes(r.id)) : allRoles;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(false);
@@ -55,15 +71,13 @@ export function AddUserDialog({ onCreated }: { onCreated: () => void }) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button size="sm" />}>
         <PlusIcon />
-        Add user
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent>
         <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Add user</DialogTitle>
-            <DialogDescription>
-              Create a staff account. Share the email and temporary password with them; they can change it after signing in.
-            </DialogDescription>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-3">

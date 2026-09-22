@@ -13,20 +13,32 @@ interface EditUserDialogProps {
   user: StaffUser | null;
   onClose: () => void;
   onSaved: () => void;
+  /** Restricts the role dropdown to these role ids. Omit to offer every role (superadmin's User Management). */
+  allowedRoleIds?: string[];
 }
 
-export function EditUserDialog({ user, onClose, onSaved }: EditUserDialogProps) {
+export function EditUserDialog({ user, onClose, onSaved, allowedRoleIds }: EditUserDialogProps) {
   return (
     <Dialog open={user !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         {/* Keyed by user so the form state resets when a different user is opened. */}
-        {user && <EditUserForm key={user.id} user={user} onSaved={onSaved} onClose={onClose} />}
+        {user && <EditUserForm key={user.id} user={user} onSaved={onSaved} onClose={onClose} allowedRoleIds={allowedRoleIds} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function EditUserForm({ user, onSaved, onClose }: { user: StaffUser; onSaved: () => void; onClose: () => void }) {
+function EditUserForm({
+  user,
+  onSaved,
+  onClose,
+  allowedRoleIds,
+}: {
+  user: StaffUser;
+  onSaved: () => void;
+  onClose: () => void;
+  allowedRoleIds?: string[];
+}) {
   const [fullName, setFullName] = useState(user.full_name);
   const [phone, setPhone] = useState(user.phone ?? "");
   const [address, setAddress] = useState(user.address ?? "");
@@ -37,7 +49,8 @@ function EditUserForm({ user, onSaved, onClose }: { user: StaffUser; onSaved: ()
   const [error, setError] = useState<string | null>(null);
 
   const { user: me } = useAuth();
-  const { roles } = useRoles();
+  const { roles: allRoles } = useRoles();
+  const roles = allowedRoleIds ? allRoles.filter((r) => allowedRoleIds.includes(r.id)) : allRoles;
   const isSelf = me?.id === user.id;
   const roleChanged = roleId !== "" && roleId !== currentRole;
 

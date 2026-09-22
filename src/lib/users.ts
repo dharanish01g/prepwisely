@@ -23,7 +23,14 @@ export interface NewStaffUser {
   address?: string;
 }
 
-export function useUsers() {
+/** Roles the content manager is allowed to create/edit/deactivate (see the Content team screen). */
+export const CONTENT_TEAM_ROLE_IDS = ["content_creator", "content_reviewer"];
+
+/**
+ * `roleIds`, when given, keeps only users holding one of those roles (a stable module-level array,
+ * e.g. `CONTENT_TEAM_ROLE_IDS`, so it doesn't change identity on every render).
+ */
+export function useUsers(roleIds?: string[]) {
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,16 +44,15 @@ export function useUsers() {
       setError(error.message);
     } else {
       setError(null);
-      setUsers(
-        (data ?? []).map(({ user_roles, ...p }) => ({
-          ...p,
-          status: p.status as StaffUser["status"],
-          roles: user_roles.map((r) => r.role_id),
-        })),
-      );
+      const mapped = (data ?? []).map(({ user_roles, ...p }) => ({
+        ...p,
+        status: p.status as StaffUser["status"],
+        roles: user_roles.map((r) => r.role_id),
+      }));
+      setUsers(roleIds ? mapped.filter((u) => u.roles.some((r) => roleIds.includes(r))) : mapped);
     }
     setLoading(false);
-  }, []);
+  }, [roleIds]);
 
   useEffect(() => {
     void refresh();
@@ -104,3 +110,6 @@ export const resetPassword = (userId: string, password: string) =>
 
 export const createUser = (user: NewStaffUser) =>
   callAdminUsers({ action: "create", ...parseOrThrow(newStaffUserSchema, user) });
+
+export const setUserStatus = (userId: string, status: "active" | "inactive") =>
+  callAdminUsers({ action: "set_status", user_id: userId, status });

@@ -1,9 +1,12 @@
-// Superadmin-only staff management. One endpoint, four actions:
+// Staff management. One endpoint, four actions:
 //   create          { full_name, email, password, role_id, phone?, address? }
 //   update          { user_id, full_name, phone?, address?, role_id? }   (role_id replaces the user's role)
 //   reset_password  { user_id, password }
 //   set_status      { user_id, status: "active" | "inactive" }
-// Nothing here deletes users. Writes use the service role; the caller must be an active superadmin.
+// Nothing here deletes users. Writes use the service role.
+// Caller must be an active superadmin (full access), or an active content_manager, who may only
+// create/update/reset/deactivate accounts whose role is content_creator or content_reviewer — never
+// a manager, superadmin, or anyone else, even if the request tries to name a different role/target.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -15,6 +18,8 @@ const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Supabase has no "disable user" flag; a very long ban blocks sign-in and token refresh.
 const BAN_FOREVER = "876000h";
+
+const CONTENT_TEAM_ROLES = ["content_creator", "content_reviewer"];
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +38,8 @@ const fail = (status: number, error: string) => json({ error }, status);
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
+type Scope = "full" | "content-team";
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return fail(405, "Method not allowed");
@@ -40,7 +47,7 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return fail(401, "Missing authorization");
 
-  // Identify the caller with their own JWT, then require an active superadmin.
+  // Identify the caller with their own JWT, then require an active superadmin or content manager.
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
@@ -48,9 +55,20 @@ Deno.serve(async (req: Request) => {
   if (userError || !userData.user) return fail(401, "Invalid session");
   const callerId = userData.user.id;
 
-  const { data: isSuperadmin, error: roleError } = await userClient.rpc("is_superadmin");
-  if (roleError) return fail(500, "Could not verify permissions");
-  if (!isSuperadmin) return fail(403, "Superadmin only");
+  const { data: isSuperadmin, error: superError } = await userClient.rpc("is_superadmin");
+  if (superError) return fail(500, "Could not verify permissions");
+
+  let scope: Scope;
+  if (isSuperadmin) {
+    scope = "full";
+  } else {
+    const { data: isContentManager, error: cmError } = await userClient.rpc("has_role", {
+      p_role_id: "content_manager",
+    });
+    if (cmError) return fail(500, "Could not verify permissions");
+    if (!isContentManager) return fail(403, "Not authorized");
+    scope = "content-team";
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -65,13 +83,13 @@ Deno.serve(async (req: Request) => {
 
   switch (body.action) {
     case "create":
-      return await createUser(admin, callerId, body);
+      return await createUser(admin, callerId, body, scope);
     case "update":
-      return await updateUser(admin, callerId, body);
+      return await updateUser(admin, callerId, body, scope);
     case "reset_password":
-      return await resetPassword(admin, body);
+      return await resetPassword(admin, body, scope);
     case "set_status":
-      return await setStatus(admin, callerId, body);
+      return await setStatus(admin, callerId, body, scope);
     default:
       return fail(400, "Unknown action");
   }
@@ -79,7 +97,15 @@ Deno.serve(async (req: Request) => {
 
 type Admin = ReturnType<typeof createClient>;
 
-async function createUser(admin: Admin, callerId: string, body: Record<string, unknown>) {
+// A content manager may only act on an account that holds exactly the content_creator/content_reviewer
+// roles — never one that also (or instead) holds superadmin, content_manager, or anything else.
+async function isContentTeamAccount(admin: Admin, userId: string): Promise<boolean> {
+  const { data, error } = await admin.from("user_roles").select("role_id").eq("user_id", userId);
+  if (error || !data || data.length === 0) return false;
+  return data.every((r) => CONTENT_TEAM_ROLES.includes(r.role_id as string));
+}
+
+async function createUser(admin: Admin, callerId: string, body: Record<string, unknown>, scope: Scope) {
   const fullName = str(body.full_name);
   const email = str(body.email).toLowerCase();
   const password = typeof body.password === "string" ? body.password : "";
@@ -93,6 +119,9 @@ async function createUser(admin: Admin, callerId: string, body: Record<string, u
     return fail(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
   }
   if (!roleId) return fail(400, "Role is required");
+  if (scope === "content-team" && !CONTENT_TEAM_ROLES.includes(roleId)) {
+    return fail(403, "You can only create content creator or reviewer accounts");
+  }
 
   const { data: role, error: roleError } = await admin.from("roles").select("id").eq("id", roleId).maybeSingle();
   if (roleError) return fail(500, "Could not verify role");
@@ -128,7 +157,7 @@ async function createUser(admin: Admin, callerId: string, body: Record<string, u
 }
 
 // Email is intentionally not editable here. `role_id` is optional: when given, it replaces the user's role.
-async function updateUser(admin: Admin, callerId: string, body: Record<string, unknown>) {
+async function updateUser(admin: Admin, callerId: string, body: Record<string, unknown>, scope: Scope) {
   const userId = str(body.user_id);
   const fullName = str(body.full_name);
   const phone = str(body.phone) || null;
@@ -136,6 +165,13 @@ async function updateUser(admin: Admin, callerId: string, body: Record<string, u
   const roleId = str(body.role_id);
   if (!userId) return fail(400, "user_id is required");
   if (!fullName) return fail(400, "Full name is required");
+
+  if (scope === "content-team") {
+    if (!(await isContentTeamAccount(admin, userId))) return fail(403, "Not a content team account");
+    if (roleId && !CONTENT_TEAM_ROLES.includes(roleId)) {
+      return fail(403, "You can only set the role to content creator or reviewer");
+    }
+  }
 
   if (roleId) {
     // Guards against a superadmin demoting themselves out of access.
@@ -162,12 +198,15 @@ async function updateUser(admin: Admin, callerId: string, body: Record<string, u
   return json({ ok: true });
 }
 
-async function resetPassword(admin: Admin, body: Record<string, unknown>) {
+async function resetPassword(admin: Admin, body: Record<string, unknown>, scope: Scope) {
   const userId = str(body.user_id);
   const password = typeof body.password === "string" ? body.password : "";
   if (!userId) return fail(400, "user_id is required");
   if (password.length < MIN_PASSWORD_LENGTH) {
     return fail(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+  if (scope === "content-team" && !(await isContentTeamAccount(admin, userId))) {
+    return fail(403, "Not a content team account");
   }
 
   const { data: profile } = await admin.from("profiles").select("id").eq("id", userId).maybeSingle();
@@ -178,13 +217,17 @@ async function resetPassword(admin: Admin, body: Record<string, unknown>) {
   return json({ ok: true });
 }
 
-async function setStatus(admin: Admin, callerId: string, body: Record<string, unknown>) {
+async function setStatus(admin: Admin, callerId: string, body: Record<string, unknown>, scope: Scope) {
   const userId = str(body.user_id);
   const status = body.status;
   if (!userId) return fail(400, "user_id is required");
   if (status !== "active" && status !== "inactive") return fail(400, "status must be active or inactive");
-  // Guards against locking every superadmin out.
+  // Guards against locking every superadmin out (harmless for a content manager: they can never
+  // target their own account here, since it never carries only content_creator/content_reviewer).
   if (userId === callerId && status === "inactive") return fail(400, "You cannot deactivate yourself");
+  if (scope === "content-team" && !(await isContentTeamAccount(admin, userId))) {
+    return fail(403, "Not a content team account");
+  }
 
   const { data: profile } = await admin.from("profiles").select("id, status").eq("id", userId).maybeSingle();
   if (!profile) return fail(404, "User not found");
