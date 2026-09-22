@@ -10,11 +10,13 @@ import { useAuth } from "@/hooks/use-auth"
 import { COMMON_ITEMS, useNav, type NavItem } from "@/lib/nav"
 import { useMyRoleIds, useRoles } from "@/lib/roles"
 import logo from "@/assets/logo.png"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
@@ -22,6 +24,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
   SidebarRail,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { LogOutIcon } from "lucide-react"
 // import { AudioLinesIcon, TerminalIcon } from "lucide-react"
@@ -192,6 +195,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
   const { data: myRoleIds = [] } = useMyRoleIds()
   const { roleLabel, loading: rolesLoading } = useRoles()
   const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
+  const [date, setDate] = React.useState<Date | undefined>(new Date())
 
   const renderItem = (item: NavItem) => (
     <SidebarMenuItem key={item.id}>
@@ -241,6 +245,19 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+      <SidebarSeparator className="mx-0" />
+      <SidebarGroup className="px-0">
+        <SidebarGroupContent>
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={setDate}
+            captionLayout="dropdown"
+            className="bg-transparent [--cell-size:2.1rem]"
+          />
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarSeparator className="mx-0" />
       <SidebarContent>
         {loading ? (
           <SidebarGroup>
