@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { BriefsScreen } from "@/screens/briefs";
 import { CategoriesScreen } from "@/screens/categories";
+import { CollegesScreen } from "@/screens/colleges";
 import { ComingSoonScreen } from "@/screens/coming-soon";
 import { ContentTeamScreen } from "@/screens/content-team";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
@@ -97,6 +98,8 @@ export function DashboardScreen() {
           <BriefsScreen />
         ) : page === "content-team" ? (
           <ContentTeamScreen />
+        ) : page === "my-colleges" || page === "colleges" ? (
+          <CollegesScreen />
         ) : page === "my-assignments" ? (
           <MyAssignmentsScreen onWrite={writeForBrief} />
         ) : page === "my-questions" ? (

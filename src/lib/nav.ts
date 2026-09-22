@@ -22,7 +22,6 @@ import {
   MessageSquareIcon,
   NetworkIcon,
   PenLineIcon,
-  PlusIcon,
   ScrollTextIcon,
   SearchIcon,
   Settings2Icon,
@@ -113,7 +112,6 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "Colleges",
       items: [
         item("my-colleges", "My colleges", Building2Icon),
-        item("add-college", "Add college", PlusIcon),
         item("depts-batches", "Depts & batches", NetworkIcon),
       ],
     },
