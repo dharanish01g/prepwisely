@@ -25,8 +25,9 @@ import {
   SidebarMenuSkeleton,
   SidebarRail,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar"
-import { LogOutIcon } from "lucide-react"
+import { CalendarIcon, LogOutIcon } from "lucide-react"
 // import { AudioLinesIcon, TerminalIcon } from "lucide-react"
 // import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
 
@@ -196,6 +197,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
   const { roleLabel, loading: rolesLoading } = useRoles()
   const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
   const [date, setDate] = React.useState<Date | undefined>(new Date())
+  const { toggleSidebar } = useSidebar()
 
   const renderItem = (item: NavItem) => (
     <SidebarMenuItem key={item.id}>
@@ -246,7 +248,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
         </SidebarMenu>
       </SidebarHeader>
       <SidebarSeparator className="mx-0" />
-      <SidebarGroup className="px-0">
+      <SidebarGroup className="px-0 group-data-[collapsible=icon]:hidden">
         <SidebarGroupContent>
           <Calendar
             mode="single"
@@ -256,6 +258,16 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
             className="bg-transparent [--cell-size:2.1rem]"
           />
         </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarGroup className="hidden group-data-[collapsible=icon]:block">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Calendar" onClick={toggleSidebar}>
+              <CalendarIcon />
+              <span>Calendar</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarGroup>
       <SidebarSeparator className="mx-0" />
       <SidebarContent>
