@@ -7,6 +7,7 @@ import {
   CalendarClockIcon,
   ChartColumnIcon,
   ChartLineIcon,
+  CircleHelpIcon,
   ClipboardCheckIcon,
   ClipboardListIcon,
   DownloadIcon,
@@ -48,6 +49,9 @@ export interface NavGroup {
 
 const item = (id: string, title: string, icon: LucideIcon): NavItem => ({ id, title, icon });
 
+// What each company-side role does and which pages it has (content in src/lib/help.ts).
+const HELP = item("help", "Help", CircleHelpIcon);
+
 // Sidebar contents per role (see SIDEBAR.md). This only decides which links to show; what a user can
 // actually read or change is enforced by RLS. Keys are role ids from public.roles. A role not listed
 // here contributes no links.
@@ -79,6 +83,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("quality-guidelines", "Quality guidelines", BookOpenIcon),
       ],
     },
+    { label: "Reference", items: [HELP] },
   ],
   content_manager: [
     {
@@ -91,7 +96,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       ],
     },
     { label: "Team", items: [item("content-team", "Content team", UsersIcon)] },
-    { label: "Reference", items: [item("quality-guidelines", "Quality guidelines", BookOpenIcon)] },
+    { label: "Reference", items: [item("quality-guidelines", "Quality guidelines", BookOpenIcon), HELP] },
   ],
   content_creator: [
     {
@@ -103,7 +108,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("reviewer-feedback", "Reviewer feedback", MessageSquareIcon),
       ],
     },
-    { label: "Reference", items: [item("quality-guidelines", "Quality guidelines", BookOpenIcon)] },
+    { label: "Reference", items: [item("quality-guidelines", "Quality guidelines", BookOpenIcon), HELP] },
   ],
   content_reviewer: [
     {
@@ -115,6 +120,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("quality-guidelines", "Quality guidelines", BookOpenIcon),
       ],
     },
+    { label: "Reference", items: [HELP] },
   ],
   onboarding_manager: [
     {
@@ -132,6 +138,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       ],
     },
     { label: "Tests", items: [item("test-schedule", "Test schedule", CalendarClockIcon)] },
+    { label: "Reference", items: [HELP] },
   ],
   support: [
     {
@@ -143,6 +150,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("support-log", "My action log", ScrollTextIcon),
       ],
     },
+    { label: "Reference", items: [HELP] },
   ],
   tpo: [
     {
@@ -200,6 +208,11 @@ function buildNav(roleIds: string[]): NavGroup[] {
     }
   }
   return groups;
+}
+
+/** One role's own sidebar pages, in sidebar order (Help lists these per role). */
+export function roleNavItems(roleId: string): NavItem[] {
+  return (NAV_BY_ROLE[roleId] ?? []).flatMap((g) => g.items);
 }
 
 /** Live browser online/offline state (the same signal React Query uses to pause requests). */

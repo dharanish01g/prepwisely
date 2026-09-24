@@ -13,6 +13,7 @@ import { CategoriesScreen } from "@/screens/categories";
 import { CollegesScreen } from "@/screens/colleges";
 import { ComingSoonScreen } from "@/screens/coming-soon";
 import { ContentTeamScreen } from "@/screens/content-team";
+import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
 import { ProfileScreen } from "@/screens/profile";
@@ -118,6 +119,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
           <MyQuestionsScreen mode="feedback" onEdit={openEditor} />
         ) : page === "quality-guidelines" ? (
           <QualityGuidelinesScreen />
+        ) : page === "help" ? (
+          <HelpScreen onNavigate={navigate} />
         ) : page === "dashboard" ? (
           <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
             <h1 className="text-2xl font-semibold">Dashboard</h1>
