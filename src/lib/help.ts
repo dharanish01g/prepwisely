@@ -90,10 +90,10 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
     summary:
       "You bring new client colleges onto the platform and set up what each one needs. You work only with the colleges assigned to you.",
     pages: {
-      "my-colleges": "The colleges you're responsible for. Add a new college, or edit its contact and location details.",
+      "my-colleges": "The colleges you're responsible for. Add a new college with a short code (for example SEC), or edit its contact and location details. The code can't be changed later.",
     },
     steps: [
-      "Add the college with its contact person and location. You're assigned to it automatically.",
+      "Add the college with a short unique code (for example SEC), its contact person and location. You're assigned to it automatically. Pick the code carefully: it can't be changed, and batch codes start with it.",
       "Keep its details up to date. Suspending or reactivating a college is done by the superadmin.",
     ],
   },

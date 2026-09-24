@@ -23,7 +23,7 @@ export function CollegesScreen() {
     const q = query.trim().toLowerCase();
     if (!q) return colleges;
     return colleges.filter((c) =>
-      [c.name, c.city ?? "", c.state ?? "", c.address ?? "", c.contact_name ?? "", c.contact_email ?? "", c.contact_phone ?? "", c.contact_phone_alt ?? ""].some(
+      [c.name, c.code, c.city ?? "", c.state ?? "", c.address ?? "", c.contact_name ?? "", c.contact_email ?? "", c.contact_phone ?? "", c.contact_phone_alt ?? ""].some(
         (v) => v.toLowerCase().includes(q),
       ),
     );
@@ -52,13 +52,14 @@ export function CollegesScreen() {
 
           <div className="relative max-w-sm">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search by name or contact" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
+            <Input placeholder="Search by name, code or contact" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
           </div>
 
           <div className="border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-20">Code</TableHead>
                   <TableHead>College</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
@@ -68,16 +69,17 @@ export function CollegesScreen() {
               </TableHeader>
               <TableBody>
                 {isPending ? (
-                  <TableSkeletonRows columns={isSuperadmin ? ["w-48", "w-56", "w-16", "w-10", "w-6"] : ["w-48", "w-56", "w-16", "w-6"]} />
+                  <TableSkeletonRows columns={isSuperadmin ? ["w-12", "w-48", "w-56", "w-16", "w-10", "w-6"] : ["w-12", "w-48", "w-56", "w-16", "w-6"]} />
                 ) : error || filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isSuperadmin ? 5 : 4} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
+                    <TableCell colSpan={isSuperadmin ? 6 : 5} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
                       {error ? `Could not load colleges: ${error.message}` : colleges.length === 0 ? "No colleges yet. Add one to get started." : "No colleges match."}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filtered.map((c) => (
                     <TableRow key={c.id} className="cursor-pointer" onClick={() => setOpenId(c.id)}>
+                      <TableCell className="font-medium">{c.code}</TableCell>
                       <TableCell className="max-w-48 font-medium">
                         <div className="flex flex-col">
                           <span className="truncate">{c.name}</span>
@@ -170,6 +172,7 @@ function CollegeDetails({
       <div className="flex flex-1 flex-col gap-5 px-4 pb-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{college.code}</Badge>
             <Badge variant={college.status === "active" ? "default" : "secondary"} className="capitalize">
               {college.status}
             </Badge>
@@ -204,6 +207,15 @@ function CollegeDetails({
           </div>
           {!contactFullName && !college.contact_email && !college.contact_phone && !college.contact_phone_alt && (
             <p className="text-sm text-muted-foreground">No contact details on file.</p>
+          )}
+        </div>
+
+        <div className="grid gap-2 border p-4">
+          <h2 className="text-sm font-semibold">Notes</h2>
+          {college.notes ? (
+            <p className="text-sm break-words whitespace-pre-wrap">{college.notes}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">No notes.</p>
           )}
         </div>
       </div>

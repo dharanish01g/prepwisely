@@ -28,6 +28,7 @@ const PREFIX_ITEMS = CONTACT_PREFIXES.map((p) => ({ value: p, label: p }));
 
 function CollegeForm({ college, onClose }: { college: College | null; onClose: () => void }) {
   const [name, setName] = useState(college?.name ?? "");
+  const [code, setCode] = useState(college?.code ?? "");
   const [contactPrefix, setContactPrefix] = useState<string>(college?.contact_prefix ?? "");
   const [contactName, setContactName] = useState(college?.contact_name ?? "");
   const [contactEmail, setContactEmail] = useState(college?.contact_email ?? "");
@@ -36,6 +37,7 @@ function CollegeForm({ college, onClose }: { college: College | null; onClose: (
   const [city, setCity] = useState(college?.city ?? "");
   const [state, setState] = useState(college?.state ?? "");
   const [address, setAddress] = useState(college?.address ?? "");
+  const [notes, setNotes] = useState(college?.notes ?? "");
   const [problem, setProblem] = useState<string | null>(null);
   const save = useSaveCollege();
 
@@ -47,6 +49,7 @@ function CollegeForm({ college, onClose }: { college: College | null; onClose: (
         id: college?.id,
         input: {
           name,
+          code,
           contact_prefix: contactPrefix,
           contact_name: contactName,
           contact_email: contactEmail,
@@ -55,6 +58,7 @@ function CollegeForm({ college, onClose }: { college: College | null; onClose: (
           city,
           state,
           address,
+          notes,
         },
       },
       {
@@ -77,10 +81,29 @@ function CollegeForm({ college, onClose }: { college: College | null; onClose: (
       </DialogHeader>
 
       <div className="grid gap-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="college_name">College name</Label>
-          <Input id="college_name" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="grid grid-cols-[1fr_8rem] gap-1.5">
+          <div className="grid gap-1.5">
+            <Label htmlFor="college_name">College name</Label>
+            <Input id="college_name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="college_code">Code</Label>
+            {/* Set once: batch codes start with it (e.g. SEC-CSE-B01), so the database won't let it change. */}
+            <Input
+              id="college_code"
+              value={code}
+              maxLength={10}
+              placeholder="e.g. SEC"
+              disabled={college !== null}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+            />
+          </div>
         </div>
+        <p className="-mt-1.5 text-xs text-muted-foreground">
+          {college
+            ? "The college code can't be changed."
+            : "Code: 2–10 letters or digits, unique across all colleges. It can't be changed later."}
+        </p>
         <div className="grid grid-cols-2 gap-1.5">
           <div className="grid gap-1.5">
             <Label htmlFor="college_city">City</Label>
@@ -129,6 +152,19 @@ function CollegeForm({ college, onClose }: { college: College | null; onClose: (
             <Label htmlFor="college_contact_phone_alt">Alternate phone</Label>
             <Input id="college_contact_phone_alt" type="tel" value={contactPhoneAlt} onChange={(e) => setContactPhoneAlt(e.target.value)} />
           </div>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="college_notes">
+            Notes <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Textarea
+            id="college_notes"
+            rows={3}
+            maxLength={2000}
+            placeholder="Anything else worth knowing about this college"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </div>
       </div>
 
