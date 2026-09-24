@@ -68,7 +68,17 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("user-management", "User Management", UsersIcon),
       ],
     },
-    { label: "Content Management", items: [item("categories", "Categories", LayersIcon)] },
+    // Superadmin also runs content (the database already grants it everything a content manager can do).
+    {
+      label: "Content Management",
+      items: [
+        item("categories", "Categories", LayersIcon),
+        item("briefs", "Briefs & targets", TargetIcon),
+        item("question-bank", "Question bank", LibraryIcon),
+        item("content-team", "Content team", UsersIcon),
+        item("quality-guidelines", "Quality guidelines", BookOpenIcon),
+      ],
+    },
   ],
   content_manager: [
     {
