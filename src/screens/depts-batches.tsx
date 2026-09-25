@@ -14,9 +14,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
+import { BatchStudentsPage } from "@/screens/batch-students";
 import { type College, useColleges } from "@/lib/colleges";
 import { useIsSuperadmin } from "@/lib/roles";
 import { type Batch, type Department, useBatches, useDepartments, useSetArchived } from "@/lib/structure";
+import { useStudentCounts } from "@/lib/students";
 
 // Depts & batches: the page lists a college's departments; clicking a row opens a drawer with the department's
 // details (drawers are for details only), and "View batches" drills into a page listing that department's batches.
@@ -124,7 +126,11 @@ export function DeptsBatchesScreen() {
   }
 
   if (viewing && college && openBatch && batchPage) {
-    return <BatchPlaceholderPage batch={openBatch} department={viewing} page={batchPage.page} />;
+    return batchPage.page === "students" ? (
+      <BatchStudentsPage college={college} department={viewing} batch={openBatch} />
+    ) : (
+      <BatchPlaceholderPage batch={openBatch} department={viewing} page={batchPage.page} />
+    );
   }
 
   if (viewing && college) {
@@ -528,11 +534,13 @@ const BATCH_PAGES: Record<BatchPageKind, { title: string; description: string }>
   },
 };
 
-// Filled in once student accounts, tests and results exist; until then the drawer shows placeholders.
-const BATCH_STATS = ["Students", "Average marks", "Tests taken", "Topics covered"];
+// Filled in once tests and results exist; until then the drawer shows placeholders for these.
+const PENDING_STATS = ["Average marks", "Tests taken", "Topics covered"];
 
 /** Drawer: a batch's details and headline numbers. */
 function BatchDetails({ batch, department, onOpen }: { batch: Batch; department: Department; onOpen: (page: BatchPageKind) => void }) {
+  const counts = useStudentCounts(batch.college_id);
+  const students = counts.data?.get(batch.id) ?? 0;
   return (
     <div className="flex flex-1 flex-col gap-5">
       <SheetHeader>
@@ -554,14 +562,18 @@ function BatchDetails({ batch, department, onOpen }: { batch: Batch; department:
         <div className="grid gap-3 border p-4">
           <h2 className="text-sm font-semibold">At a glance</h2>
           <div className="grid grid-cols-2 gap-4">
-            {BATCH_STATS.map((label) => (
+            <div className="grid gap-0.5">
+              <p className="text-xs text-muted-foreground">Students</p>
+              <p className="text-lg font-semibold">{counts.isPending ? "—" : students}</p>
+            </div>
+            {PENDING_STATS.map((label) => (
               <div key={label} className="grid gap-0.5">
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="text-lg font-semibold text-muted-foreground">—</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">These fill in once students are added and start taking tests.</p>
+          <p className="text-xs text-muted-foreground">Students counts active accounts. The rest fill in once students start taking tests.</p>
         </div>
 
         <div className="flex gap-2">

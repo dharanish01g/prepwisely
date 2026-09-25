@@ -10,9 +10,20 @@ export interface MyProfile {
   address: string | null;
   status: "active" | "inactive";
   created_at: string;
+  /** Set for a student account: where they study. Staff have an address instead. */
+  student?: {
+    roll_number: string;
+    batch_code: string;
+    graduation_year: number;
+    department: string;
+    college: string;
+  };
 }
 
-/** The signed-in user's own profile row (RLS lets each user read it). */
+/**
+ * The signed-in user's own details: a staff profile row (RLS lets each user read it), or for a student, their
+ * students row with batch, department and college (via my_student_profile(), since students can't read those tables).
+ */
 export function useMyProfile() {
   const { user } = useAuth();
   return useQuery({
@@ -23,9 +34,29 @@ export function useMyProfile() {
         .from("profiles")
         .select("full_name, email, phone, address, status, created_at")
         .eq("id", user!.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
-      return { ...data, status: data.status as MyProfile["status"] };
+      if (data) return { ...data, status: data.status as MyProfile["status"] };
+
+      const { data: rows, error: studentError } = await supabase.rpc("my_student_profile");
+      if (studentError) throw studentError;
+      const s = rows?.[0];
+      if (!s) throw new Error("No profile found for this account");
+      return {
+        full_name: s.full_name,
+        email: s.email,
+        phone: s.phone,
+        address: null,
+        status: s.status as MyProfile["status"],
+        created_at: s.created_at,
+        student: {
+          roll_number: s.roll_number,
+          batch_code: s.batch_code,
+          graduation_year: s.graduation_year,
+          department: `${s.department_code} · ${s.department_name}`,
+          college: `${s.college_code} · ${s.college_name}`,
+        },
+      };
     },
   });
 }

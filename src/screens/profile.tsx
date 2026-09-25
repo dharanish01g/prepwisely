@@ -90,9 +90,18 @@ export function ProfileScreen() {
               day: "numeric",
             })}
           />
-          <div className="sm:col-span-2">
-            <Field label="Address" value={profile.address} />
-          </div>
+          {profile.student ? (
+            <>
+              <Field label="Roll number" value={profile.student.roll_number} />
+              <Field label="Batch" value={`${profile.student.batch_code} (graduating ${profile.student.graduation_year})`} />
+              <Field label="Department" value={profile.student.department} />
+              <Field label="College" value={profile.student.college} />
+            </>
+          ) : (
+            <div className="sm:col-span-2">
+              <Field label="Address" value={profile.address} />
+            </div>
+          )}
         </dl>
       </section>
 

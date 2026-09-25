@@ -80,9 +80,10 @@ export function useMyRoleIds() {
     initialData: () => readCachedRoles(user?.id),
     initialDataUpdatedAt: 0,
     queryFn: async (): Promise<string[]> => {
-      const { data, error } = await supabase.from("user_roles").select("role_id").eq("user_id", user!.id);
+      // Staff roles plus 'student' for a student account (students have no staff profile or user_roles rows).
+      const { data, error } = await supabase.rpc("my_role_ids");
       if (error) throw error;
-      const roleIds = data.map((r) => r.role_id);
+      const roleIds = (data ?? []) as string[];
       writeCachedRoles(user!.id, roleIds);
       return roleIds;
     },
