@@ -236,7 +236,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
               render={<div />}
               className="cursor-default hover:bg-transparent hover:text-inherit active:bg-transparent"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+              <div className="flex aspect-square size-8 items-center justify-center">
                 <img src={logo} alt="" className="size-full object-contain" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">

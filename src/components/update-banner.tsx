@@ -76,7 +76,7 @@ export function UpdateBanner({ state, onInstall, onDismiss, onLater }: UpdateBan
   return (
     <div
       role="status"
-      className="fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2 rounded-lg border bg-background p-3 text-left shadow-lg"
+      className="fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2 border bg-background p-3 text-left shadow-lg"
     >
       <div className="flex items-center gap-3">
         <div className="flex-1 text-sm">

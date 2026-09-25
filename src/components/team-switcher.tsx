@@ -47,7 +47,7 @@ export function TeamSwitcher({
               />
             }
           >
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+            <div className="flex aspect-square size-8 items-center justify-center">
               {activeTeam.logo}
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
@@ -72,7 +72,7 @@ export function TeamSwitcher({
                   onClick={() => setActiveIndex(index)}
                   className="gap-2 p-2"
                 >
-                  <div className="flex size-6 items-center justify-center rounded-md border">
+                  <div className="flex size-6 items-center justify-center border">
                     {team.logo}
                   </div>
                   {team.name}
@@ -83,7 +83,7 @@ export function TeamSwitcher({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem className="gap-2 p-2">
-                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                <div className="flex size-6 items-center justify-center border bg-transparent">
                   <PlusIcon className="size-4" />
                 </div>
                 <div className="font-medium text-muted-foreground">

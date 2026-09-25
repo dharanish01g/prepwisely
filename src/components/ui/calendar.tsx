@@ -215,7 +215,7 @@ function CalendarDayButton({
     >
       {children}
       {/* {eventCount > 0 && (
-        <span className="absolute top-0.5 right-0.5 z-20 size-1.5 rounded-full bg-destructive" />
+        <span className="absolute top-0.5 right-0.5 z-20 size-1.5 rounded-none bg-destructive" />
       )} */}
     </Button>
   )
