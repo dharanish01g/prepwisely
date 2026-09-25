@@ -27,7 +27,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { CalendarIcon, LogOutIcon } from "lucide-react"
+import { CalendarIcon, ChevronDownIcon, LogOutIcon } from "lucide-react"
 // import { AudioLinesIcon, TerminalIcon } from "lucide-react"
 // import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
 
@@ -185,6 +185,35 @@ const data = {
 }
 */
 
+// True while the element has content scrolled out of view below it. Rechecks on scroll and whenever
+// the element or its children change size (nav groups loading in, the window resizing).
+function useMoreBelow<T extends HTMLElement>() {
+  const ref = React.useRef<T>(null)
+  const [moreBelow, setMoreBelow] = React.useState(false)
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => setMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 1)
+    const resize = new ResizeObserver(check)
+    const observeAll = () => {
+      resize.disconnect()
+      resize.observe(el)
+      Array.from(el.children).forEach((child) => resize.observe(child))
+      check()
+    }
+    const mutation = new MutationObserver(observeAll)
+    mutation.observe(el, { childList: true })
+    el.addEventListener("scroll", check, { passive: true })
+    observeAll()
+    return () => {
+      el.removeEventListener("scroll", check)
+      resize.disconnect()
+      mutation.disconnect()
+    }
+  }, [])
+  return { ref, moreBelow }
+}
+
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activePage: string
   onNavigate: (page: string) => void
@@ -198,6 +227,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
   const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
   const [date, setDate] = React.useState<Date | undefined>(new Date())
   const { toggleSidebar } = useSidebar()
+  const { ref: contentRef, moreBelow } = useMoreBelow<HTMLDivElement>()
 
   const renderItem = (item: NavItem) => (
     <SidebarMenuItem key={item.id}>
@@ -270,7 +300,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
         </SidebarMenu>
       </SidebarGroup>
       <SidebarSeparator className="mx-0" />
-      <SidebarContent>
+      <SidebarContent ref={contentRef}>
         {loading ? (
           <SidebarGroup>
             <SidebarMenu>
@@ -299,6 +329,20 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
         </SidebarGroup>
         {/* <NavMain items={data.navMain} /> */}
         {/* <NavProjects projects={data.projects} /> */}
+        {/* More links below the fold: fade the last row out and offer a nudge down. Hidden when collapsed
+            to icons, where the content doesn't scroll. */}
+        {moreBelow && (
+          <div className="pointer-events-none sticky bottom-0 -mt-10 flex h-10 shrink-0 items-end justify-center bg-gradient-to-t from-sidebar to-transparent group-data-[collapsible=icon]:hidden">
+            <button
+              type="button"
+              aria-label="Scroll down for more"
+              onClick={() => contentRef.current?.scrollBy({ top: contentRef.current.clientHeight / 2, behavior: "smooth" })}
+              className="pointer-events-auto mb-1 flex size-6 items-center justify-center bg-sidebar text-muted-foreground shadow-sm hover:text-sidebar-foreground"
+            >
+              <ChevronDownIcon className="size-4 animate-bounce" />
+            </button>
+          </div>
+        )}
       </SidebarContent>
       <SidebarFooter>
         {/* <NavUser user={currentUser} /> */}
