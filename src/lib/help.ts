@@ -19,6 +19,7 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
       "You have full access to the whole platform. Your main job is keeping an eye on it: colleges, staff accounts and how things are running. You also run content day to day, the same way a content manager does.",
     pages: {
       colleges: "Every client college on the platform. Open one to see its details, and suspend or reactivate it. Only you can change a college's status.",
+      "depts-batches": "Pick any college to see and manage its departments and batches, the same way its onboarding manager does.",
       "user-management": "Every staff account. Add accounts, edit someone's details or role, and reset passwords.",
       categories: "The topic tree questions are filed under (for example Technical › Java). Only you can add or edit categories.",
       briefs: "Tell creators what to write: a category, easy/medium/hard targets and a deadline, assigned to one or more creators. Track progress and close a brief when it's done.",
@@ -91,9 +92,11 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
       "You bring new client colleges onto the platform and set up what each one needs. You work only with the colleges assigned to you.",
     pages: {
       "my-colleges": "The colleges you're responsible for. Add a new college with a short code (for example SEC), or edit its contact and location details. The code can't be changed later.",
+      "depts-batches": "Pick one of your colleges, then add its departments (a short code like CSE and a name). Click a department for its details, or View batches to open its batches page and add batches (a batch is one section of a year's intake): you only enter the graduation year, and the next section's code (for example SEC-CSE-2027-B01, then B02) is generated. The year can't be changed later. Archive what's no longer in use; nothing is deleted.",
     },
     steps: [
       "Add the college with a short unique code (for example SEC), its contact person and location. You're assigned to it automatically. Pick the code carefully: it can't be changed, and batch codes start with it.",
+      "On Depts & batches, add the college's departments, then the batches under each one.",
       "Keep its details up to date. Suspending or reactivating a college is done by the superadmin.",
     ],
   },

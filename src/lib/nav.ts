@@ -69,6 +69,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "Platform Management",
       items: [
         item("colleges", "Colleges", Building2Icon),
+        item("depts-batches", "Depts & batches", NetworkIcon),
         item("user-management", "User Management", UsersIcon),
       ],
     },

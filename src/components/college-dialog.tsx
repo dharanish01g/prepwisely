@@ -88,7 +88,7 @@ function CollegeForm({ college, onClose }: { college: College | null; onClose: (
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="college_code">Code</Label>
-            {/* Set once: batch codes start with it (e.g. SEC-CSE-B01), so the database won't let it change. */}
+            {/* Set once: batch codes start with it (e.g. SEC-CSE-2027-B01), so the database won't let it change. */}
             <Input
               id="college_code"
               value={code}

@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Loader2Icon } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ConnectionBanner } from "@/components/connection-banner";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { BreadcrumbTrailProvider, useBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import type { useUpdater } from "@/hooks/use-updater";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { BriefsScreen } from "@/screens/briefs";
@@ -13,6 +14,7 @@ import { CategoriesScreen } from "@/screens/categories";
 import { CollegesScreen } from "@/screens/colleges";
 import { ComingSoonScreen } from "@/screens/coming-soon";
 import { ContentTeamScreen } from "@/screens/content-team";
+import { DeptsBatchesScreen } from "@/screens/depts-batches";
 import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
@@ -35,6 +37,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
   const [editorKey, setEditorKey] = useState(0);
   // Set when the editor was opened from a brief ("My assignments" → Write a question).
   const [editorBriefId, setEditorBriefId] = useState<string | null>(null);
+  // Bumped on every sidebar navigation, so a drill-down screen (Depts & batches › SEC › CSE) starts from its top.
+  const [navCount, setNavCount] = useState(0);
 
   // Only pages in the user's own sidebar are reachable; anything else falls back to their first page.
   const allowed = useMemo(
@@ -49,6 +53,7 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
     setEditingId(null);
     setEditorBriefId(null);
     setEditorKey((k) => k + 1);
+    setNavCount((n) => n + 1);
     setRequested(next);
   }
 
@@ -67,69 +72,101 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar activePage={page} onNavigate={navigate} />
-      <SidebarInset>
-        <ConnectionBanner offline={offline} failed={failed} retrying={retrying} onRetry={retry} />
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{title}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </header>
+    <BreadcrumbTrailProvider>
+      <SidebarProvider>
+        <AppSidebar activePage={page} onNavigate={navigate} />
+        <SidebarInset>
+          <ConnectionBanner offline={offline} failed={failed} retrying={retrying} onRetry={retry} />
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
+              <HeaderBreadcrumb title={title} />
+            </div>
+          </header>
 
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center">
-            <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : page === "user-management" ? (
-          <UserManagementScreen />
-        ) : page === "profile" ? (
-          <ProfileScreen />
-        ) : page === "settings" ? (
-          <SettingsScreen updater={updater} />
-        ) : page === "categories" ? (
-          <CategoriesScreen />
-        ) : page === "write-question" ? (
-          <WriteQuestionScreen key={editorKey} questionId={editingId} defaultBriefId={editorBriefId} onDone={() => navigate("my-questions")} />
-        ) : page === "briefs" ? (
-          <BriefsScreen />
-        ) : page === "content-team" ? (
-          <ContentTeamScreen />
-        ) : page === "my-colleges" || page === "colleges" ? (
-          <CollegesScreen />
-        ) : page === "my-assignments" ? (
-          <MyAssignmentsScreen onWrite={writeForBrief} />
-        ) : page === "my-questions" ? (
-          <MyQuestionsScreen mode="all" onEdit={openEditor} />
-        ) : page === "review-queue" ? (
-          <ReviewQueueScreen />
-        ) : page === "review-history" ? (
-          <ReviewHistoryScreen />
-        ) : page === "question-bank" ? (
-          <QuestionBankScreen />
-        ) : page === "reviewer-feedback" ? (
-          <MyQuestionsScreen mode="feedback" onEdit={openEditor} />
-        ) : page === "quality-guidelines" ? (
-          <QualityGuidelinesScreen />
-        ) : page === "help" ? (
-          <HelpScreen onNavigate={navigate} />
-        ) : page === "dashboard" ? (
-          <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
-            <h1 className="text-2xl font-semibold">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Signed in as {user?.email}. More coming soon.</p>
-          </div>
-        ) : (
-          <ComingSoonScreen title={title} />
-        )}
-      </SidebarInset>
-    </SidebarProvider>
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : page === "user-management" ? (
+            <UserManagementScreen />
+          ) : page === "profile" ? (
+            <ProfileScreen />
+          ) : page === "settings" ? (
+            <SettingsScreen updater={updater} />
+          ) : page === "categories" ? (
+            <CategoriesScreen />
+          ) : page === "write-question" ? (
+            <WriteQuestionScreen key={editorKey} questionId={editingId} defaultBriefId={editorBriefId} onDone={() => navigate("my-questions")} />
+          ) : page === "briefs" ? (
+            <BriefsScreen />
+          ) : page === "content-team" ? (
+            <ContentTeamScreen />
+          ) : page === "my-colleges" || page === "colleges" ? (
+            <CollegesScreen />
+          ) : page === "depts-batches" ? (
+            <DeptsBatchesScreen key={navCount} />
+          ) : page === "my-assignments" ? (
+            <MyAssignmentsScreen onWrite={writeForBrief} />
+          ) : page === "my-questions" ? (
+            <MyQuestionsScreen mode="all" onEdit={openEditor} />
+          ) : page === "review-queue" ? (
+            <ReviewQueueScreen />
+          ) : page === "review-history" ? (
+            <ReviewHistoryScreen />
+          ) : page === "question-bank" ? (
+            <QuestionBankScreen />
+          ) : page === "reviewer-feedback" ? (
+            <MyQuestionsScreen mode="feedback" onEdit={openEditor} />
+          ) : page === "quality-guidelines" ? (
+            <QualityGuidelinesScreen />
+          ) : page === "help" ? (
+            <HelpScreen onNavigate={navigate} />
+          ) : page === "dashboard" ? (
+            <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
+              <h1 className="text-2xl font-semibold">Dashboard</h1>
+              <p className="text-sm text-muted-foreground">Signed in as {user?.email}. More coming soon.</p>
+            </div>
+          ) : (
+            <ComingSoonScreen title={title} />
+          )}
+        </SidebarInset>
+      </SidebarProvider>
+    </BreadcrumbTrailProvider>
+  );
+}
+
+/** Page title, plus the drill-down trail a screen has set (e.g. Depts & batches › SEC › CSE). */
+function HeaderBreadcrumb({ title }: { title: string }) {
+  const trail = useBreadcrumbTrail();
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          {trail ? (
+            <BreadcrumbLink render={<button type="button" />} onClick={trail.onRoot}>
+              {title}
+            </BreadcrumbLink>
+          ) : (
+            <BreadcrumbPage>{title}</BreadcrumbPage>
+          )}
+        </BreadcrumbItem>
+        {trail?.items.map((crumb, i) => (
+          <Fragment key={i}>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              {crumb.onClick ? (
+                <BreadcrumbLink render={<button type="button" />} onClick={crumb.onClick}>
+                  {crumb.label}
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
+          </Fragment>
+        ))}
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }
