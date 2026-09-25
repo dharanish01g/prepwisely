@@ -293,15 +293,22 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
             </SidebarGroup>
           ))
         )}
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarMenu>{COMMON_ITEMS.map(renderItem)}</SidebarMenu>
+        </SidebarGroup>
         {/* <NavMain items={data.navMain} /> */}
         {/* <NavProjects projects={data.projects} /> */}
       </SidebarContent>
       <SidebarFooter>
         {/* <NavUser user={currentUser} /> */}
         <SidebarMenu>
-          {COMMON_ITEMS.map(renderItem)}
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Log out" onClick={() => void signOut()}>
+            <SidebarMenuButton
+              tooltip="Log out"
+              onClick={() => void signOut()}
+              className="bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive active:bg-destructive/20 active:text-destructive dark:bg-destructive/20 dark:hover:bg-destructive/30"
+            >
               <LogOutIcon />
               <span>Log out</span>
             </SidebarMenuButton>
