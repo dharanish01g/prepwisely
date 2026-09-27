@@ -60,7 +60,8 @@ export class ImportRejected extends Error {
 }
 
 // Calls the `college-users` Edge Function and surfaces its error message (and per-row errors for an import).
-async function callCollegeUsers(body: Record<string, unknown>) {
+// Shared with lib/faculty.ts.
+export async function callCollegeUsers(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke("college-users", { body });
   if (error) {
     if (error instanceof FunctionsHttpError) {

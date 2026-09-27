@@ -23,6 +23,7 @@ import {
   MessageSquareIcon,
   NetworkIcon,
   PenLineIcon,
+  PresentationIcon,
   ScrollTextIcon,
   SearchIcon,
   Settings2Icon,
@@ -70,6 +71,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       items: [
         item("colleges", "Colleges", Building2Icon),
         item("depts-batches", "Depts & batches", NetworkIcon),
+        item("faculty", "Faculty", PresentationIcon),
         item("user-management", "User Management", UsersIcon),
       ],
     },
@@ -134,7 +136,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
     {
       label: "People",
       items: [
-        item("college-users", "Users", UsersIcon),
+        item("faculty", "Faculty", PresentationIcon),
         item("bulk-import", "Bulk student import", UploadIcon),
       ],
     },

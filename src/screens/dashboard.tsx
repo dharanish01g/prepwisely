@@ -15,6 +15,7 @@ import { CollegesScreen } from "@/screens/colleges";
 import { ComingSoonScreen } from "@/screens/coming-soon";
 import { ContentTeamScreen } from "@/screens/content-team";
 import { DeptsBatchesScreen } from "@/screens/depts-batches";
+import { FacultyScreen } from "@/screens/faculty";
 import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
@@ -107,6 +108,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <CollegesScreen />
           ) : page === "depts-batches" ? (
             <DeptsBatchesScreen key={navCount} />
+          ) : page === "faculty" ? (
+            <FacultyScreen key={navCount} />
           ) : page === "my-assignments" ? (
             <MyAssignmentsScreen onWrite={writeForBrief} />
           ) : page === "my-questions" ? (
