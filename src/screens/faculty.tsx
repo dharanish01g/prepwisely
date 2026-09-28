@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, SearchIcon, UserCheckIcon, UserXIcon } from "lucide-react";
+import { GraduationCapIcon, KeyRoundIcon, Loader2Icon, PencilIcon, PlusIcon, SearchIcon, UserCheckIcon, UserXIcon } from "lucide-react";
 import { toast } from "sonner";
 import { CollegePicker } from "@/components/college-picker";
 import { FacultyDialog, type FacultyDialogState } from "@/components/faculty-dialog";
@@ -12,14 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import { useColleges } from "@/lib/colleges";
 import { type Faculty, type FacultyRole, useCollegeFaculty, useFacultyAssignments, useFacultyRoles, useSetFacultyStatus } from "@/lib/faculty";
 import { useIsSuperadmin } from "@/lib/roles";
 import { type Batch, type Department, useBatches, useDepartments } from "@/lib/structure";
+import { FacultyBatchesPage } from "@/screens/faculty-batches";
 
 // Faculty of one college (superadmin: any college; onboarding manager: their colleges). Pick a college, then the
 // list. Each row has edit, reset password and deactivate/reactivate buttons; clicking the row opens a drawer with
-// the full details (and the same actions). Batch assignments get their own page (not built yet).
+// the full details (and the same actions). "Manage batches" opens the faculty member's Batches page (assign,
+// unassign, past assignments).
 
 const ALL = "all";
 const NO_DEPARTMENT = "none";
@@ -46,6 +49,24 @@ export function FacultyScreen() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<FacultyDialogState>(null);
   const [resetting, setResetting] = useState<Faculty | null>(null);
+  // The faculty member whose Batches page is open (a drill-down page, not a drawer).
+  const [batchesForId, setBatchesForId] = useState<string | null>(null);
+  const batchesFor = batchesForId ? faculty.data?.find((f) => f.id === batchesForId) : undefined;
+
+  function openBatches(facultyId: string) {
+    setOpenId(null);
+    setBatchesForId(facultyId);
+  }
+
+  useSetBreadcrumbTrail(
+    batchesFor && college
+      ? {
+          items: [{ label: college.code, onClick: () => setBatchesForId(null) }, { label: batchesFor.code }, { label: "Batches" }],
+          onRoot: () => setBatchesForId(null),
+        }
+      : null,
+    batchesFor && college ? `${college.code}/${batchesFor.code}/batches` : "",
+  );
 
   const departmentById = useMemo(() => new Map((departments.data ?? []).map((d) => [d.id, d])), [departments.data]);
   const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles]);
@@ -79,6 +100,17 @@ export function FacultyScreen() {
           {isSuperadmin ? "No colleges yet. Add one on the Colleges page first." : "No colleges yet. Add one on My colleges first."}
         </p>
       </div>
+    );
+  }
+
+  if (batchesFor) {
+    return (
+      <FacultyBatchesPage
+        faculty={batchesFor}
+        batches={batches.data ?? []}
+        departments={departments.data ?? []}
+        batchesLoading={batches.isPending || departments.isPending}
+      />
     );
   }
 
@@ -148,7 +180,7 @@ export function FacultyScreen() {
               <TableHead className="w-44">Current role</TableHead>
               <TableHead className="w-20">Batches</TableHead>
               <TableHead className="w-24">Status</TableHead>
-              <TableHead className="w-28" />
+              <TableHead className="w-36" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -159,7 +191,7 @@ export function FacultyScreen() {
                 </TableCell>
               </TableRow>
             ) : collegesPending || loading ? (
-              <TableSkeletonRows columns={["w-16", "w-32", "w-44", "w-10", "w-28", "w-6", "w-14", "w-20 ml-auto"]} />
+              <TableSkeletonRows columns={["w-16", "w-32", "w-44", "w-10", "w-28", "w-6", "w-14", "w-28 ml-auto"]} />
             ) : loadError || visible.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className={`h-24 text-center ${loadError ? "text-destructive" : "text-muted-foreground"}`}>
@@ -196,6 +228,15 @@ export function FacultyScreen() {
                       >
                         <KeyRoundIcon />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Manage batches"
+                        aria-label={`Manage batches of ${f.full_name}`}
+                        onClick={() => openBatches(f.id)}
+                      >
+                        <GraduationCapIcon />
+                      </Button>
                       <FacultyStatusButton faculty={f} collegeId={f.college_id} />
                     </div>
                   </TableCell>
@@ -219,6 +260,7 @@ export function FacultyScreen() {
                 .filter((b): b is Batch => b !== undefined)}
               onEdit={() => setDialog({ faculty: open })}
               onResetPassword={() => setResetting(open)}
+              onManageBatches={() => openBatches(open.id)}
             />
           )}
         </SheetContent>
@@ -280,6 +322,7 @@ function FacultyDetails({
   batches,
   onEdit,
   onResetPassword,
+  onManageBatches,
 }: {
   faculty: Faculty;
   collegeId: string;
@@ -288,6 +331,7 @@ function FacultyDetails({
   batches: Batch[];
   onEdit: () => void;
   onResetPassword: () => void;
+  onManageBatches: () => void;
 }) {
   const setStatus = useSetFacultyStatus(collegeId);
   const active = faculty.status === "active";
@@ -340,7 +384,12 @@ function FacultyDetails({
         </div>
 
         <div className="grid gap-2">
-          <p className="text-sm font-medium">Batches</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Batches</p>
+            <Button variant="outline" size="sm" onClick={onManageBatches}>
+              Manage batches
+            </Button>
+          </div>
           {batches.length === 0 ? (
             <p className="text-sm text-muted-foreground">Not assigned to any batch yet.</p>
           ) : (

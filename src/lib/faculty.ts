@@ -176,3 +176,63 @@ export function useSetFacultyStatus(collegeId: string) {
     onSuccess: invalidate,
   });
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Batch assignments of one faculty member. Assigning several batches is all or nothing; unassigning keeps the row
+// (stamped with when it ended), so the history below includes past assignments too.
+// ---------------------------------------------------------------------------------------------------------------
+
+export interface FacultyAssignment {
+  id: string;
+  batch_id: string;
+  assigned_at: string;
+  unassigned_at: string | null;
+}
+
+const historyKey = (facultyId: string) => ["faculty-batch-history", facultyId];
+
+/** Every assignment of the faculty member, current and ended, newest first. */
+export function useFacultyBatchHistory(facultyId: string) {
+  return useQuery({
+    queryKey: historyKey(facultyId),
+    queryFn: async (): Promise<FacultyAssignment[]> => {
+      const { data, error } = await supabase
+        .from("faculty_batches")
+        .select("id, batch_id, assigned_at, unassigned_at")
+        .eq("faculty_id", facultyId)
+        .order("assigned_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
+}
+
+function useInvalidateAssignments(collegeId: string, facultyId: string) {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: historyKey(facultyId) });
+    void queryClient.invalidateQueries({ queryKey: assignmentsKey(collegeId) });
+  };
+}
+
+export function useAssignBatches(collegeId: string, facultyId: string) {
+  const invalidate = useInvalidateAssignments(collegeId, facultyId);
+  return useMutation({
+    mutationFn: async (batchIds: string[]): Promise<number> => {
+      if (batchIds.length === 0) throw new Error("Pick at least one batch");
+      const data = await callCollegeUsers({ action: "faculty_assign_batches", faculty_id: facultyId, batch_ids: batchIds });
+      return (data as { assigned: number }).assigned;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useUnassignBatch(collegeId: string, facultyId: string) {
+  const invalidate = useInvalidateAssignments(collegeId, facultyId);
+  return useMutation({
+    mutationFn: async (batchId: string) => {
+      await callCollegeUsers({ action: "faculty_unassign_batch", faculty_id: facultyId, batch_id: batchId });
+    },
+    onSuccess: invalidate,
+  });
+}
