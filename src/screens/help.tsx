@@ -1,6 +1,5 @@
 import { ROLE_HELP, type RoleHelp } from "@/lib/help";
-import { roleNavItems } from "@/lib/nav";
-import { useMyRoleIds } from "@/lib/roles";
+import { roleNavItems, useActiveRole } from "@/lib/nav";
 
 function RoleSection({ roleId, help, onNavigate }: { roleId: string; help: RoleHelp; onNavigate: (page: string) => void }) {
   const pages = roleNavItems(roleId).filter((i) => help.pages[i.id]);
@@ -44,8 +43,9 @@ function RoleSection({ roleId, help, onNavigate }: { roleId: string; help: RoleH
 }
 
 export function HelpScreen({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const { data: roleIds } = useMyRoleIds();
-  const roles = Object.keys(ROLE_HELP).filter((r) => roleIds?.includes(r));
+  // Only the role the user is working as (someone with several roles switches in the sidebar).
+  const { activeRoleId } = useActiveRole();
+  const roles = Object.keys(ROLE_HELP).filter((r) => r === activeRoleId);
 
   return (
     <div className="flex max-w-3xl flex-col gap-4 p-4 pt-0">

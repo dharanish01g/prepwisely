@@ -8,8 +8,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -18,28 +16,40 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react"
+import { CheckIcon, ChevronsUpDownIcon, type LucideIcon } from "lucide-react"
 
+export interface SwitcherRole {
+  id: string
+  label: string
+  icon: LucideIcon
+}
+
+// Sidebar header for a user with more than one role (e.g. faculty + TPO on one login): the logo and the role they're
+// working as, opening a list of only their own roles. Picking one swaps the sidebar to that role's pages.
 export function TeamSwitcher({
-  teams,
+  name,
+  logo,
+  roles,
+  activeRoleId,
+  onSwitch,
+  disabled = false,
 }: {
-  teams: {
-    name: string
-    logo: React.ReactNode
-    plan: string
-  }[]
+  name: string
+  logo: React.ReactNode
+  roles: SwitcherRole[]
+  activeRoleId: string | undefined
+  onSwitch: (roleId: string) => void
+  disabled?: boolean
 }) {
   const { isMobile } = useSidebar()
-  const [activeIndex, setActiveIndex] = React.useState(0)
-  const activeTeam = teams[activeIndex]
-  if (!activeTeam) {
-    return null
-  }
+  const active = roles.find((r) => r.id === activeRoleId)
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
+            disabled={disabled}
             render={
               <SidebarMenuButton
                 size="lg"
@@ -48,11 +58,11 @@ export function TeamSwitcher({
             }
           >
             <div className="flex aspect-square size-8 items-center justify-center">
-              {activeTeam.logo}
+              {logo}
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{activeTeam.name}</span>
-              <span className="truncate text-xs text-muted-foreground">{activeTeam.plan}</span>
+              <span className="truncate font-medium">{name}</span>
+              <span className="truncate text-xs text-muted-foreground">{active?.label ?? ""}</span>
             </div>
             <ChevronsUpDownIcon className="ml-auto" />
           </DropdownMenuTrigger>
@@ -64,32 +74,21 @@ export function TeamSwitcher({
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Teams
+                Switch role
               </DropdownMenuLabel>
-              {teams.map((team, index) => (
+              {roles.map((role) => (
                 <DropdownMenuItem
-                  key={team.name}
-                  onClick={() => setActiveIndex(index)}
+                  key={role.id}
+                  onClick={() => role.id !== activeRoleId && onSwitch(role.id)}
                   className="gap-2 p-2"
                 >
                   <div className="flex size-6 items-center justify-center border">
-                    {team.logo}
+                    <role.icon className="size-3.5" />
                   </div>
-                  {team.name}
-                  <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                  {role.label}
+                  {role.id === activeRoleId && <CheckIcon className="ml-auto" />}
                 </DropdownMenuItem>
               ))}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem className="gap-2 p-2">
-                <div className="flex size-6 items-center justify-center border bg-transparent">
-                  <PlusIcon className="size-4" />
-                </div>
-                <div className="font-medium text-muted-foreground">
-                  Add team
-                </div>
-              </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>

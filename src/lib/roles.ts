@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/lib/supabase";
@@ -88,6 +88,46 @@ export function useMyRoleIds() {
       return roleIds;
     },
   });
+}
+
+// The role a user with several roles (e.g. faculty + TPO on one login) is working as, kept per user so the app
+// reopens in the same role. UI-only: it picks which sidebar to show; RLS still grants every role the user holds.
+const ACTIVE_ROLE_PREFIX = "prepwisely.active-role.";
+const activeRoleListeners = new Set<() => void>();
+// This session's choices, so switching still works when storage is blocked.
+const chosenRoles = new Map<string, string>();
+
+function readActiveRole(userId: string | undefined): string | null {
+  if (!userId) return null;
+  const chosen = chosenRoles.get(userId);
+  if (chosen) return chosen;
+  try {
+    return localStorage.getItem(ACTIVE_ROLE_PREFIX + userId);
+  } catch {
+    return null;
+  }
+}
+
+/** The user's saved role choice (null if none). Shared by every component that reads it. */
+export function useSavedActiveRole(): string | null {
+  const { user } = useAuth();
+  return useSyncExternalStore(
+    (onChange) => {
+      activeRoleListeners.add(onChange);
+      return () => activeRoleListeners.delete(onChange);
+    },
+    () => readActiveRole(user?.id),
+  );
+}
+
+export function saveActiveRole(userId: string, roleId: string) {
+  chosenRoles.set(userId, roleId);
+  try {
+    localStorage.setItem(ACTIVE_ROLE_PREFIX + userId, roleId);
+  } catch {
+    // Storage blocked; the choice lasts until the app closes.
+  }
+  activeRoleListeners.forEach((notify) => notify());
 }
 
 /** UI-only convenience; the database enforces the real rule with RLS. */

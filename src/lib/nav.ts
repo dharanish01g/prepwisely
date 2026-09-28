@@ -36,7 +36,8 @@ import {
   CirclePlayIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useMyRoleIds } from "@/lib/roles";
+import { useAuth } from "@/hooks/use-auth";
+import { saveActiveRole, useMyRoleIds, useSavedActiveRole } from "@/lib/roles";
 
 export interface NavItem {
   id: string;
@@ -201,7 +202,8 @@ export const COMMON_ITEMS: NavItem[] = [
   item("settings", "Settings", Settings2Icon),
 ];
 
-// A user can hold several roles: show every role's groups, and never repeat a page.
+// Builds the sidebar from the given roles' groups, never repeating a page. The app passes one role: a user with
+// several roles sees the one they switched to (see useActiveRole).
 function buildNav(roleIds: string[]): NavGroup[] {
   const seen = new Set<string>();
   const groups: NavGroup[] = [];
@@ -221,6 +223,25 @@ export function roleNavItems(roleId: string): NavItem[] {
   return (NAV_BY_ROLE[roleId] ?? []).flatMap((g) => g.items);
 }
 
+/**
+ * The user's roles in sidebar order (e.g. tpo before faculty) and the one they're working as: their saved choice
+ * if they still hold it, else the first. `switchable` is true only with more than one role.
+ */
+export function useActiveRole() {
+  const { user } = useAuth();
+  const { data: roleIds } = useMyRoleIds();
+  const saved = useSavedActiveRole();
+  const known = Object.keys(NAV_BY_ROLE);
+  const ordered = [...known.filter((r) => roleIds?.includes(r)), ...(roleIds ?? []).filter((r) => !known.includes(r))];
+  const activeRoleId = saved && ordered.includes(saved) ? saved : ordered[0];
+  return {
+    roleIds: ordered,
+    activeRoleId,
+    switchable: ordered.length > 1,
+    setActiveRole: (roleId: string) => user && saveActiveRole(user.id, roleId),
+  };
+}
+
 /** Live browser online/offline state (the same signal React Query uses to pause requests). */
 export function useOnline() {
   return useSyncExternalStore(
@@ -235,8 +256,9 @@ const isNetworkError = (error: unknown) =>
 
 export function useNav() {
   const { data: roleIds, isPending, isError, error, isFetching, refetch } = useMyRoleIds();
+  const { activeRoleId } = useActiveRole();
   const online = useOnline();
-  const groups = useMemo(() => buildNav(roleIds ?? []), [roleIds]);
+  const groups = useMemo(() => buildNav(activeRoleId ? [activeRoleId] : []), [activeRoleId]);
   // `online` covers a dropped connection; the query error covers wifi that is up but has no internet.
   const offline = !online || (isError && isNetworkError(error));
   return {

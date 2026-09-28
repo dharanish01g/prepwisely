@@ -5,9 +5,9 @@ import * as React from "react"
 // import { NavMain } from "@/components/nav-main"
 // import { NavProjects } from "@/components/nav-projects"
 // import { NavUser } from "@/components/nav-user"
-// import { TeamSwitcher } from "@/components/team-switcher"
+import { TeamSwitcher } from "@/components/team-switcher"
 import { useAuth } from "@/hooks/use-auth"
-import { COMMON_ITEMS, useNav, type NavItem } from "@/lib/nav"
+import { COMMON_ITEMS, roleNavItems, useActiveRole, useNav, type NavItem } from "@/lib/nav"
 import { useMyRoleIds, useRoles } from "@/lib/roles"
 import logo from "@/assets/logo.png"
 import { Calendar } from "@/components/ui/calendar"
@@ -27,36 +27,12 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { CalendarIcon, ChevronDownIcon, LogOutIcon } from "lucide-react"
-// import { AudioLinesIcon, TerminalIcon } from "lucide-react"
+import { CalendarIcon, ChevronDownIcon, CircleUserIcon, LogOutIcon } from "lucide-react"
 // import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
 
-// Sample data (team switcher, nav, projects), commented out for now; reuse later.
+// Sample data (nav, projects), commented out for now; reuse later.
 /*
 const data = {
-  teams: [
-    {
-      name: "prepwisely.in",
-      logo: <img src={logo} alt="" className="size-full object-contain" />,
-      plan: "Superadmin",
-    },
-    {
-      name: "Acme Corp.",
-      logo: (
-        <AudioLinesIcon
-        />
-      ),
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: (
-        <TerminalIcon
-        />
-      ),
-      plan: "Free",
-    },
-  ],
   navMain: [
     {
       title: "Playground",
@@ -225,6 +201,19 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
   const { data: myRoleIds = [] } = useMyRoleIds()
   const { roleLabel, loading: rolesLoading } = useRoles()
   const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
+  // More than one role (e.g. faculty + TPO): a switcher listing only this user's roles; the sidebar shows one at a time.
+  const { roleIds, activeRoleId, switchable, setActiveRole } = useActiveRole()
+  const switcherRoles = roleIds.map((id) => ({
+    id,
+    label: rolesLoading ? id : roleLabel(id),
+    icon: roleNavItems(id)[0]?.icon ?? CircleUserIcon,
+  }))
+  const switchRole = (roleId: string) => {
+    setActiveRole(roleId)
+    const first = roleNavItems(roleId)[0]
+    if (first) onNavigate(first.id)
+  }
+  const logoImage = <img src={logo} alt="" className="size-full object-contain" />
   const [date, setDate] = React.useState<Date | undefined>(new Date())
   const { toggleSidebar } = useSidebar()
   const { ref: contentRef, moreBelow } = useMoreBelow<HTMLDivElement>()
@@ -258,24 +247,34 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        {/* <TeamSwitcher teams={data.teams} /> */}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<div />}
-              className="cursor-default hover:bg-transparent hover:text-inherit active:bg-transparent"
-            >
-              <div className="flex aspect-square size-8 items-center justify-center">
-                <img src={logo} alt="" className="size-full object-contain" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">prepwisely.in</span>
-                <span className="truncate text-xs text-muted-foreground">{roleText}</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {switchable ? (
+          <TeamSwitcher
+            name="prepwisely.in"
+            logo={logoImage}
+            roles={switcherRoles}
+            activeRoleId={activeRoleId}
+            onSwitch={switchRole}
+            disabled={offline}
+          />
+        ) : (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                render={<div />}
+                className="cursor-default hover:bg-transparent hover:text-inherit active:bg-transparent"
+              >
+                <div className="flex aspect-square size-8 items-center justify-center">
+                  {logoImage}
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">prepwisely.in</span>
+                  <span className="truncate text-xs text-muted-foreground">{roleText}</span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
       </SidebarHeader>
       <SidebarSeparator className="mx-0" />
       <SidebarGroup className="px-0 group-data-[collapsible=icon]:hidden">
