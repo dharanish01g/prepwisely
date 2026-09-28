@@ -18,11 +18,18 @@ export interface MyProfile {
     department: string;
     college: string;
   };
+  /** Set for a faculty and/or TPO account (one login can be both): their college and each role's details. */
+  collegeStaff?: {
+    college: string;
+    faculty?: { code: string; department: string | null; role: string | null };
+    tpo?: { code: string; designation: string | null };
+  };
 }
 
 /**
  * The signed-in user's own details: a staff profile row (RLS lets each user read it), or for a student, their
- * students row with batch, department and college (via my_student_profile(), since students can't read those tables).
+ * students row with batch, department and college (via my_student_profile(), since students can't read those tables),
+ * or for faculty/TPO their row(s) with college and role details (my_faculty_profile() / my_tpo_profile()).
  */
 export function useMyProfile() {
   const { user } = useAuth();
@@ -38,9 +45,39 @@ export function useMyProfile() {
       if (error) throw error;
       if (data) return { ...data, status: data.status as MyProfile["status"] };
 
-      const { data: rows, error: studentError } = await supabase.rpc("my_student_profile");
-      if (studentError) throw studentError;
-      const s = rows?.[0];
+      const [studentRes, facultyRes, tpoRes] = await Promise.all([
+        supabase.rpc("my_student_profile"),
+        supabase.rpc("my_faculty_profile"),
+        supabase.rpc("my_tpo_profile"),
+      ]);
+      const failed = studentRes.error ?? facultyRes.error ?? tpoRes.error;
+      if (failed) throw failed;
+      const s = studentRes.data?.[0];
+      const f = facultyRes.data?.[0];
+      const t = tpoRes.data?.[0];
+
+      // Faculty and/or TPO: a faculty+TPO login has both rows, with the same name, email, phone and college.
+      if (!s && (f || t)) {
+        const base = (f ?? t)!;
+        return {
+          full_name: base.full_name,
+          email: base.email,
+          phone: base.phone,
+          address: null,
+          status: (f?.status === "active" || t?.status === "active" ? "active" : "inactive") as MyProfile["status"],
+          created_at: base.created_at,
+          collegeStaff: {
+            college: `${base.college_code} · ${base.college_name}`,
+            faculty: f && {
+              code: f.code,
+              department: f.department_code ? `${f.department_code} · ${f.department_name}` : null,
+              role: f.faculty_role,
+            },
+            tpo: t && { code: t.code, designation: t.designation },
+          },
+        };
+      }
+
       if (!s) throw new Error("No profile found for this account");
       return {
         full_name: s.full_name,

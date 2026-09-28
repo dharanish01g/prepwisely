@@ -97,6 +97,23 @@ export function ProfileScreen() {
               <Field label="Department" value={profile.student.department} />
               <Field label="College" value={profile.student.college} />
             </>
+          ) : profile.collegeStaff ? (
+            <>
+              <Field label="College" value={profile.collegeStaff.college} />
+              {profile.collegeStaff.faculty && (
+                <>
+                  <Field label="Faculty ID" value={profile.collegeStaff.faculty.code} />
+                  <Field label="Department" value={profile.collegeStaff.faculty.department} />
+                  <Field label="Current role" value={profile.collegeStaff.faculty.role} />
+                </>
+              )}
+              {profile.collegeStaff.tpo && (
+                <>
+                  <Field label="TPO ID" value={profile.collegeStaff.tpo.code} />
+                  <Field label="Designation" value={profile.collegeStaff.tpo.designation} />
+                </>
+              )}
+            </>
           ) : (
             <div className="sm:col-span-2">
               <Field label="Address" value={profile.address} />
