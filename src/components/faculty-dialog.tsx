@@ -35,10 +35,20 @@ export function FacultyDialog({ state, ...props }: FacultyDialogProps) {
   );
 }
 
-/** The sign-in details to hand a faculty member, with a button that copies them all at once. */
-export function FacultyCredentials({ code, email, password }: { code: string; email: string; password: string }) {
+/** The sign-in details to hand a faculty member (or TPO), with a button that copies them all at once. */
+export function FacultyCredentials({
+  code,
+  email,
+  password,
+  idLabel = "Faculty ID",
+}: {
+  code: string;
+  email: string;
+  password: string;
+  idLabel?: string;
+}) {
   const rows = [
-    ["Faculty ID", code],
+    [idLabel, code],
     ["Email", email],
     ["Password", password],
   ];

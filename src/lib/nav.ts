@@ -3,6 +3,7 @@ import { onlineManager } from "@tanstack/react-query";
 import {
   BellIcon,
   BookOpenIcon,
+  BriefcaseIcon,
   Building2Icon,
   CalendarClockIcon,
   ChartColumnIcon,
@@ -72,6 +73,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("colleges", "Colleges", Building2Icon),
         item("depts-batches", "Depts & batches", NetworkIcon),
         item("faculty", "Faculty", PresentationIcon),
+        item("tpo", "TPO", BriefcaseIcon),
         item("user-management", "User Management", UsersIcon),
       ],
     },
@@ -137,6 +139,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "People",
       items: [
         item("faculty", "Faculty", PresentationIcon),
+        item("tpo", "TPO", BriefcaseIcon),
         item("bulk-import", "Bulk student import", UploadIcon),
       ],
     },

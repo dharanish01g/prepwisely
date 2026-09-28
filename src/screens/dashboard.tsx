@@ -25,6 +25,7 @@ import { QuestionBankScreen } from "@/screens/question-bank";
 import { ReviewHistoryScreen } from "@/screens/review-history";
 import { ReviewQueueScreen } from "@/screens/review-queue";
 import { SettingsScreen } from "@/screens/settings";
+import { TpoScreen } from "@/screens/tpo";
 import { UserManagementScreen } from "@/screens/user-management";
 import { WriteQuestionScreen } from "@/screens/write-question";
 
@@ -110,6 +111,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <DeptsBatchesScreen key={navCount} />
           ) : page === "faculty" ? (
             <FacultyScreen key={navCount} />
+          ) : page === "tpo" ? (
+            <TpoScreen key={navCount} />
           ) : page === "my-assignments" ? (
             <MyAssignmentsScreen onWrite={writeForBrief} />
           ) : page === "my-questions" ? (
