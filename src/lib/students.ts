@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import type { Cell } from "@/lib/question-import";
+import { cleanSearch } from "@/lib/review";
 import { supabase } from "@/lib/supabase";
 
 // Students of a batch. Accounts are created, reset and (de)activated only through the `college-users` Edge Function
@@ -35,10 +36,46 @@ export function useBatchStudents(batchId: string) {
   });
 }
 
+export const COLLEGE_STUDENTS_PAGE_SIZE = 25;
+
+export interface CollegeStudentFilters {
+  search: string;
+  /** Limit to these batches (a department's, or one batch); null = the whole college. */
+  batchIds: string[] | null;
+  status: "all" | Student["status"];
+  page: number;
+}
+
+/** A college's students across batches (the TPO's Students page), searched, filtered and paged on the server. */
+export function useCollegeStudents(collegeId: string | null, filters: CollegeStudentFilters) {
+  return useQuery({
+    queryKey: ["college-students", collegeId, filters],
+    enabled: collegeId !== null,
+    placeholderData: keepPreviousData,
+    queryFn: async (): Promise<{ rows: Student[]; total: number }> => {
+      let query = supabase
+        .from("students")
+        .select(STUDENT_COLUMNS, { count: "exact" })
+        .eq("college_id", collegeId!)
+        .order("full_name")
+        .order("roll_number")
+        .range(filters.page * COLLEGE_STUDENTS_PAGE_SIZE, (filters.page + 1) * COLLEGE_STUDENTS_PAGE_SIZE - 1);
+      if (filters.batchIds) query = query.in("batch_id", filters.batchIds);
+      if (filters.status !== "all") query = query.eq("status", filters.status);
+      const term = cleanSearch(filters.search);
+      if (term) query = query.or(`full_name.ilike.*${term}*,email.ilike.*${term}*,roll_number.ilike.*${term}*,phone.ilike.*${term}*`);
+      const { data, error, count } = await query;
+      if (error) throw new Error(error.message);
+      return { rows: data, total: count ?? 0 };
+    },
+  });
+}
+
 /** Active students per batch in a college, for the batch drawer's count. */
 export function useStudentCounts(collegeId: string) {
   return useQuery({
     queryKey: countsKey(collegeId),
+    enabled: collegeId !== "",
     queryFn: async (): Promise<Map<string, number>> => {
       const { data, error } = await supabase.from("students").select("batch_id").eq("college_id", collegeId).eq("status", "active");
       if (error) throw new Error(error.message);

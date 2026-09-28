@@ -11,10 +11,11 @@ import type { useUpdater } from "@/hooks/use-updater";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
 import { BriefsScreen } from "@/screens/briefs";
 import { CategoriesScreen } from "@/screens/categories";
+import { CollegeStudentsScreen } from "@/screens/college-students";
 import { CollegesScreen } from "@/screens/colleges";
 import { ComingSoonScreen } from "@/screens/coming-soon";
 import { ContentTeamScreen } from "@/screens/content-team";
-import { DeptsBatchesScreen } from "@/screens/depts-batches";
+import { CollegeBatchesScreen, DeptsBatchesScreen } from "@/screens/depts-batches";
 import { FacultyScreen } from "@/screens/faculty";
 import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
@@ -109,6 +110,12 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <CollegesScreen />
           ) : page === "depts-batches" ? (
             <DeptsBatchesScreen key={navCount} />
+          ) : page === "departments" ? (
+            <DeptsBatchesScreen key={navCount} readOnly />
+          ) : page === "batches" ? (
+            <CollegeBatchesScreen key={navCount} />
+          ) : page === "students" ? (
+            <CollegeStudentsScreen key={navCount} />
           ) : page === "faculty" ? (
             <FacultyScreen key={navCount} />
           ) : page === "tpo" ? (

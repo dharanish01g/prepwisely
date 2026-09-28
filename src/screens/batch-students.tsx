@@ -14,13 +14,24 @@ import type { Batch, Department } from "@/lib/structure";
 import { batchPassword, type Student, useBatchStudents, useResetStudentPassword, useSetStudentStatus } from "@/lib/students";
 
 // A batch's Students page (Depts & batches › SEC › ECE › SEC-ECE-2027-B01 › Students): the list, adding one student,
-// importing a file, and a drawer per student with reset password and deactivate/reactivate.
+// importing a file, and a drawer per student with reset password and deactivate/reactivate. `readOnly` (TPO) shows
+// the list and details only.
 
 function StatusBadge({ status }: { status: Student["status"] }) {
   return <Badge variant={status === "active" ? "default" : "secondary"}>{status}</Badge>;
 }
 
-export function BatchStudentsPage({ college, department, batch }: { college: College; department: Department; batch: Batch }) {
+export function BatchStudentsPage({
+  college,
+  department,
+  batch,
+  readOnly = false,
+}: {
+  college: College;
+  department: Department;
+  batch: Batch;
+  readOnly?: boolean;
+}) {
   const { data: students = [], isPending, isFetching, error, refetch } = useBatchStudents(batch.id);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -41,18 +52,22 @@ export function BatchStudentsPage({ college, department, batch }: { college: Col
         </div>
         <div className="flex gap-2">
           <RefreshButton onRefresh={() => void refetch()} refreshing={isFetching} />
-          <Button size="sm" variant="outline" disabled={archived} onClick={() => setImporting(true)}>
-            <UploadIcon />
-            Import students
-          </Button>
-          <Button size="sm" disabled={archived} onClick={() => setAdding(true)}>
-            <PlusIcon />
-            Add student
-          </Button>
+          {!readOnly && (
+            <>
+              <Button size="sm" variant="outline" disabled={archived} onClick={() => setImporting(true)}>
+                <UploadIcon />
+                Import students
+              </Button>
+              <Button size="sm" disabled={archived} onClick={() => setAdding(true)}>
+                <PlusIcon />
+                Add student
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {archived && <p className="text-sm text-muted-foreground">This batch is archived. Restore it to add students.</p>}
+      {archived && !readOnly && <p className="text-sm text-muted-foreground">This batch is archived. Restore it to add students.</p>}
 
       <div className="border">
         <Table>
@@ -71,7 +86,11 @@ export function BatchStudentsPage({ college, department, batch }: { college: Col
             ) : error || students.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
-                  {error ? `Could not load students: ${error.message}` : "No students yet. Add one, or import a file."}
+                  {error
+                    ? `Could not load students: ${error.message}`
+                    : readOnly
+                      ? "No students in this batch yet."
+                      : "No students yet. Add one, or import a file."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -93,12 +112,16 @@ export function BatchStudentsPage({ college, department, batch }: { college: Col
 
       <Sheet open={open !== undefined} onOpenChange={(next) => !next && setOpenId(null)}>
         <SheetContent className="overflow-y-auto sm:max-w-lg">
-          {open && <StudentDetails student={open} batch={batch} department={department} collegeId={college.id} />}
+          {open && <StudentDetails student={open} batch={batch} department={department} collegeId={college.id} readOnly={readOnly} />}
         </SheetContent>
       </Sheet>
 
-      <AddStudentDialog open={adding} batchId={batch.id} batchCode={batch.code} collegeId={college.id} onClose={() => setAdding(false)} />
-      <ImportStudentsDialog open={importing} batchId={batch.id} batchCode={batch.code} collegeId={college.id} onClose={() => setImporting(false)} />
+      {!readOnly && (
+        <>
+          <AddStudentDialog open={adding} batchId={batch.id} batchCode={batch.code} collegeId={college.id} onClose={() => setAdding(false)} />
+          <ImportStudentsDialog open={importing} batchId={batch.id} batchCode={batch.code} collegeId={college.id} onClose={() => setImporting(false)} />
+        </>
+      )}
     </div>
   );
 }
@@ -112,8 +135,20 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Drawer: one student's details, reset password and deactivate/reactivate. */
-function StudentDetails({ student, batch, department, collegeId }: { student: Student; batch: Batch; department: Department; collegeId: string }) {
+/** Drawer: one student's details, reset password and deactivate/reactivate (details only when read-only). */
+export function StudentDetails({
+  student,
+  batch,
+  department,
+  collegeId,
+  readOnly,
+}: {
+  student: Student;
+  batch: Batch;
+  department: Department;
+  collegeId: string;
+  readOnly: boolean;
+}) {
   const resetPassword = useResetStudentPassword();
   const setStatus = useSetStudentStatus(batch.id, collegeId);
   const active = student.status === "active";
@@ -147,16 +182,18 @@ function StudentDetails({ student, batch, department, collegeId }: { student: St
             <Badge variant="outline">{student.roll_number}</Badge>
             <StatusBadge status={student.status} />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="outline" size="sm" disabled={resetPassword.isPending} onClick={handleReset}>
-              {resetPassword.isPending ? "Resetting…" : "Reset password"}
-            </Button>
-            <Button variant="outline" size="sm" disabled={setStatus.isPending} onClick={handleStatus}>
-              {active ? "Deactivate" : "Reactivate"}
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex shrink-0 items-center gap-2">
+              <Button variant="outline" size="sm" disabled={resetPassword.isPending} onClick={handleReset}>
+                {resetPassword.isPending ? "Resetting…" : "Reset password"}
+              </Button>
+              <Button variant="outline" size="sm" disabled={setStatus.isPending} onClick={handleStatus}>
+                {active ? "Deactivate" : "Reactivate"}
+              </Button>
+            </div>
+          )}
         </div>
-        <p className="-mt-3 text-xs text-muted-foreground">Reset password sets it back to {batchPassword(batch.code)}.</p>
+        {!readOnly && <p className="-mt-3 text-xs text-muted-foreground">Reset password sets it back to {batchPassword(batch.code)}.</p>}
 
         <div className="grid grid-cols-2 gap-4 border p-4">
           <Field label="Roll number" value={student.roll_number} />

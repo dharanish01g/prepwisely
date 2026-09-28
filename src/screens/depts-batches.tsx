@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { BatchDialog } from "@/components/batch-dialog";
 import { CollegePicker } from "@/components/college-picker";
 import { DepartmentDialog } from "@/components/department-dialog";
+import { FilterSelect } from "@/components/filter-select";
 import { RefreshButton } from "@/components/refresh-button";
 import { TableSkeletonRows } from "@/components/table-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,8 @@ import { useStudentCounts } from "@/lib/students";
 // Depts & batches: the page lists a college's departments; clicking a row opens a drawer with the department's
 // details (drawers are for details only), and "View batches" drills into a page listing that department's batches.
 // The header breadcrumb shows the trail (Depts & batches › SEC › CSE); clicking back up keeps the picked college.
+// `readOnly` is the TPO's Departments page: their own college only (RLS), no picker, and no add/edit/archive or
+// student account actions. CollegeBatchesScreen (below) is the TPO's Batches page: every batch of the college.
 
 function StatusBadge({ archived }: { archived: boolean }) {
   return <Badge variant={archived ? "secondary" : "default"}>{archived ? "archived" : "active"}</Badge>;
@@ -76,12 +79,13 @@ function useArchiveToggle(collegeId: string) {
   };
 }
 
-export function DeptsBatchesScreen() {
+export function DeptsBatchesScreen({ readOnly = false }: { readOnly?: boolean }) {
   const { isSuperadmin } = useIsSuperadmin();
   const { data: colleges = [], isPending: collegesPending } = useColleges();
   const [pickedId, setPickedId] = useState<string | null>(null);
-  // Nothing is picked until the user chooses a college; drop the pick if it's no longer in the list.
-  const college = colleges.find((c) => c.id === pickedId) ?? null;
+  // Nothing is picked until the user chooses a college; drop the pick if it's no longer in the list. Read-only
+  // (TPO) users can read just their own college, so it's picked for them.
+  const college = readOnly ? (colleges[0] ?? null) : (colleges.find((c) => c.id === pickedId) ?? null);
   const collegeId = college?.id ?? null;
 
   const departments = useDepartments(collegeId);
@@ -117,9 +121,13 @@ export function DeptsBatchesScreen() {
   if (!collegesPending && colleges.length === 0) {
     return (
       <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
-        <h1 className="text-2xl font-semibold">Depts & batches</h1>
+        <h1 className="text-2xl font-semibold">{readOnly ? "Departments" : "Depts & batches"}</h1>
         <p className="text-sm text-muted-foreground">
-          {isSuperadmin ? "No colleges yet. Add one on the Colleges page first." : "No colleges yet. Add one on My colleges first."}
+          {readOnly
+            ? "Couldn't find your college. Contact support."
+            : isSuperadmin
+              ? "No colleges yet. Add one on the Colleges page first."
+              : "No colleges yet. Add one on My colleges first."}
         </p>
       </div>
     );
@@ -127,7 +135,7 @@ export function DeptsBatchesScreen() {
 
   if (viewing && college && openBatch && batchPage) {
     return batchPage.page === "students" ? (
-      <BatchStudentsPage college={college} department={viewing} batch={openBatch} />
+      <BatchStudentsPage college={college} department={viewing} batch={openBatch} readOnly={readOnly} />
     ) : (
       <BatchPlaceholderPage batch={openBatch} department={viewing} page={batchPage.page} />
     );
@@ -144,12 +152,14 @@ export function DeptsBatchesScreen() {
         refreshing={batches.isFetching}
         onRefresh={() => void batches.refetch()}
         onOpenBatch={(batchId, page) => setBatchPage({ batchId, page })}
+        readOnly={readOnly}
       />
     );
   }
 
   return (
     <DepartmentList
+      readOnly={readOnly}
       colleges={colleges}
       collegesPending={collegesPending}
       collegeId={collegeId}
@@ -169,6 +179,7 @@ export function DeptsBatchesScreen() {
 }
 
 function DepartmentList({
+  readOnly,
   colleges,
   collegesPending,
   collegeId,
@@ -181,6 +192,7 @@ function DepartmentList({
   refreshing,
   onViewBatches,
 }: {
+  readOnly: boolean;
   colleges: College[];
   collegesPending: boolean;
   collegeId: string | null;
@@ -218,20 +230,26 @@ function DepartmentList({
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Depts & batches</h1>
-            <p className="text-sm text-muted-foreground">Set up each college's departments and the batches under them.</p>
+            <h1 className="text-2xl font-semibold">{readOnly ? "Departments" : "Depts & batches"}</h1>
+            <p className="text-sm text-muted-foreground">
+              {readOnly
+                ? `${colleges[0]?.name ?? "Your college"}'s departments and the batches under them.`
+                : "Set up each college's departments and the batches under them."}
+            </p>
           </div>
           <div className="flex gap-2">
             <RefreshButton onRefresh={onRefresh} refreshing={refreshing} />
-            <Button size="sm" disabled={!collegeId} onClick={() => setDeptDialog({ department: null })}>
-              <PlusIcon />
-              Add department
-            </Button>
+            {!readOnly && (
+              <Button size="sm" disabled={!collegeId} onClick={() => setDeptDialog({ department: null })}>
+                <PlusIcon />
+                Add department
+              </Button>
+            )}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          {!collegesPending && (
+          {!collegesPending && !readOnly && (
             <CollegePicker
               colleges={colleges}
               value={collegeId}
@@ -271,7 +289,9 @@ function DepartmentList({
                       ? `Could not load departments: ${loadError.message}`
                       : departments.data?.length
                         ? "All departments are archived. Turn on Show archived to see them."
-                        : "No departments yet. Add one to get started."}
+                        : readOnly
+                          ? "No departments yet."
+                          : "No departments yet. Add one to get started."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -302,6 +322,7 @@ function DepartmentList({
         <SheetContent className="overflow-y-auto sm:max-w-lg">
           {open && collegeId && (
             <DepartmentDetails
+              readOnly={readOnly}
               collegeId={collegeId}
               department={open}
               counts={batchCounts.get(open.id) ?? { active: 0, archived: 0 }}
@@ -312,7 +333,7 @@ function DepartmentList({
         </SheetContent>
       </Sheet>
 
-      {collegeId && <DepartmentDialog collegeId={collegeId} state={deptDialog} onClose={() => setDeptDialog(null)} />}
+      {collegeId && !readOnly && <DepartmentDialog collegeId={collegeId} state={deptDialog} onClose={() => setDeptDialog(null)} />}
     </>
   );
 }
@@ -328,12 +349,14 @@ function Field({ label, value }: { label: string; value: string }) {
 
 /** Drawer: the department's details only. Its batches are managed on their own page. */
 function DepartmentDetails({
+  readOnly,
   collegeId,
   department,
   counts,
   onEdit,
   onViewBatches,
 }: {
+  readOnly: boolean;
   collegeId: string;
   department: Department;
   counts: { active: number; archived: number };
@@ -355,21 +378,23 @@ function DepartmentDetails({
             <Badge variant="outline">{department.code}</Badge>
             <StatusBadge archived={archived} />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={archive.pending}
-              onClick={() => archive.toggle("departments", department.id, department.code, !archived)}
-            >
-              {archived ? "Restore" : "Archive"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              Edit
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={archive.pending}
+                onClick={() => archive.toggle("departments", department.id, department.code, !archived)}
+              >
+                {archived ? "Restore" : "Archive"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                Edit
+              </Button>
+            </div>
+          )}
         </div>
-        {archived && <p className="-mt-3 text-xs text-muted-foreground">Archived departments keep their batches but can't get new ones.</p>}
+        {archived && !readOnly && <p className="-mt-3 text-xs text-muted-foreground">Archived departments keep their batches but can't get new ones.</p>}
 
         <div className="grid grid-cols-2 gap-4 border p-4">
           <Field label="Code" value={department.code} />
@@ -397,6 +422,7 @@ function DepartmentBatches({
   refreshing,
   onRefresh,
   onOpenBatch,
+  readOnly,
 }: {
   college: College;
   department: Department;
@@ -406,6 +432,7 @@ function DepartmentBatches({
   refreshing: boolean;
   onRefresh: () => void;
   onOpenBatch: (batchId: string, page: BatchPageKind) => void;
+  readOnly: boolean;
 }) {
   const archive = useArchiveToggle(college.id);
   const [showArchived, setShowArchived] = useState(false);
@@ -431,14 +458,16 @@ function DepartmentBatches({
         </div>
         <div className="flex gap-2">
           <RefreshButton onRefresh={onRefresh} refreshing={refreshing} />
-          <Button size="sm" disabled={deptArchived} onClick={() => setAddingBatch(true)}>
-            <PlusIcon />
-            Add batch
-          </Button>
+          {!readOnly && (
+            <Button size="sm" disabled={deptArchived} onClick={() => setAddingBatch(true)}>
+              <PlusIcon />
+              Add batch
+            </Button>
+          )}
         </div>
       </div>
 
-      {deptArchived && (
+      {deptArchived && !readOnly && (
         <p className="text-sm text-muted-foreground">This department is archived. Restore it to add batches.</p>
       )}
 
@@ -469,7 +498,9 @@ function DepartmentBatches({
                       ? `No batches graduate in ${year}.`
                       : batches.length
                         ? "All batches are archived. Turn on Show archived to see them."
-                        : "No batches yet. Add one to get started."}
+                        : readOnly
+                          ? "No batches yet."
+                          : "No batches yet. Add one to get started."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -490,16 +521,18 @@ function DepartmentBatches({
                         <Button variant="outline" size="sm" onClick={() => onOpenBatch(b.id, "analytics")}>
                           Analytics
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`${archived ? "Restore" : "Archive"} ${b.code}`}
-                          title={archived ? "Restore" : "Archive"}
-                          disabled={archive.pending}
-                          onClick={() => archive.toggle("batches", b.id, b.code, !archived)}
-                        >
-                          {archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-                        </Button>
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`${archived ? "Restore" : "Archive"} ${b.code}`}
+                            title={archived ? "Restore" : "Archive"}
+                            disabled={archive.pending}
+                            onClick={() => archive.toggle("batches", b.id, b.code, !archived)}
+                          >
+                            {archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -516,7 +549,9 @@ function DepartmentBatches({
         </SheetContent>
       </Sheet>
 
-      <BatchDialog collegeId={college.id} department={addingBatch ? department : null} onClose={() => setAddingBatch(false)} />
+      {!readOnly && (
+        <BatchDialog collegeId={college.id} department={addingBatch ? department : null} onClose={() => setAddingBatch(false)} />
+      )}
     </div>
   );
 }
@@ -606,6 +641,168 @@ function BatchPlaceholderPage({ batch, department, page }: { batch: Batch; depar
         <p className="text-sm font-medium">Coming soon</p>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
+    </div>
+  );
+}
+
+const ALL_DEPARTMENTS = "all";
+
+/**
+ * The TPO's Batches page: every batch of their college across departments (read-only), filtered by department and
+ * graduation year. A row opens the batch drawer; View students / Analytics drill into the batch's pages.
+ */
+export function CollegeBatchesScreen() {
+  const { data: colleges = [], isPending: collegesPending } = useColleges();
+  // RLS lets a TPO read only their own college.
+  const college = colleges[0] ?? null;
+  const collegeId = college?.id ?? null;
+  const departments = useDepartments(collegeId);
+  const batches = useBatches(collegeId);
+  const counts = useStudentCounts(collegeId ?? "");
+
+  const [departmentFilter, setDepartmentFilter] = useState(ALL_DEPARTMENTS);
+  const [year, setYear] = useState<number | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [batchPage, setBatchPage] = useState<{ batchId: string; page: BatchPageKind } | null>(null);
+
+  const departmentById = useMemo(() => new Map((departments.data ?? []).map((d) => [d.id, d])), [departments.data]);
+  const all = batches.data ?? [];
+  const shown = all.filter(
+    (b) => (showArchived || !b.archived_at) && (departmentFilter === ALL_DEPARTMENTS || b.department_id === departmentFilter),
+  );
+  const years = [...new Set(shown.map((b) => b.graduation_year))].sort((a, b) => a - b);
+  const visible = shown.filter((b) => year === null || b.graduation_year === year);
+  const open = openId ? all.find((b) => b.id === openId) : undefined;
+  const openBatch = batchPage ? all.find((b) => b.id === batchPage.batchId) : undefined;
+  const openDepartment = openBatch ? departmentById.get(openBatch.department_id) : undefined;
+  const loading = collegesPending || batches.isPending || departments.isPending;
+  const loadError = batches.error ?? departments.error;
+
+  const departmentItems = [
+    { value: ALL_DEPARTMENTS, label: "All departments" },
+    ...(departments.data ?? []).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}${d.archived_at ? " (archived)" : ""}` })),
+  ];
+
+  useSetBreadcrumbTrail(
+    openBatch && batchPage
+      ? { items: [{ label: openBatch.code, onClick: () => setBatchPage(null) }, { label: BATCH_PAGES[batchPage.page].title }], onRoot: () => setBatchPage(null) }
+      : null,
+    openBatch && batchPage ? `${openBatch.code}/${batchPage.page}` : "",
+  );
+
+  if (college && openBatch && openDepartment && batchPage) {
+    return batchPage.page === "students" ? (
+      <BatchStudentsPage college={college} department={openDepartment} batch={openBatch} readOnly />
+    ) : (
+      <BatchPlaceholderPage batch={openBatch} department={openDepartment} page={batchPage.page} />
+    );
+  }
+
+  return (
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Batches</h1>
+          <p className="text-sm text-muted-foreground">
+            Every batch of {college?.name ?? "your college"}, across departments. A batch is one section of a year's intake.
+          </p>
+        </div>
+        <RefreshButton
+          onRefresh={() => {
+            void batches.refetch();
+            void departments.refetch();
+            void counts.refetch();
+          }}
+          refreshing={batches.isFetching || departments.isFetching || counts.isFetching}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <FilterSelect
+          value={departmentFilter}
+          onChange={(v) => {
+            setDepartmentFilter(v);
+            setYear(null);
+          }}
+          items={departmentItems}
+          className="w-56"
+          aria-label="Department"
+        />
+        <YearFilter years={years} value={year} onChange={setYear} />
+        <ShowArchivedSwitch checked={showArchived} onChange={setShowArchived} />
+      </div>
+
+      <div className="border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Code</TableHead>
+              <TableHead className="w-24">Department</TableHead>
+              <TableHead className="w-28">Graduates</TableHead>
+              <TableHead className="w-24">Students</TableHead>
+              <TableHead className="w-24">Status</TableHead>
+              <TableHead className="w-56" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableSkeletonRows columns={["w-32", "w-12", "w-12", "w-8", "w-16", "w-40"]} />
+            ) : !college || loadError || visible.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className={`h-24 text-center ${loadError || !college ? "text-destructive" : "text-muted-foreground"}`}>
+                  {!college
+                    ? "Couldn't find your college. Contact support."
+                    : loadError
+                      ? `Could not load batches: ${loadError.message}`
+                      : shown.length
+                        ? `No batches graduate in ${year}.`
+                        : all.length
+                          ? "No batches match. Try another department, or turn on Show archived."
+                          : "No batches yet."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              visible.map((b) => (
+                <TableRow key={b.id} className="cursor-pointer" onClick={() => setOpenId(b.id)}>
+                  <TableCell className="font-medium">{b.code}</TableCell>
+                  <TableCell>{departmentById.get(b.department_id)?.code ?? "—"}</TableCell>
+                  <TableCell>{b.graduation_year}</TableCell>
+                  <TableCell>{counts.isPending ? "—" : (counts.data?.get(b.id) ?? 0)}</TableCell>
+                  <TableCell>
+                    <StatusBadge archived={b.archived_at !== null} />
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="outline" size="sm" onClick={() => setBatchPage({ batchId: b.id, page: "students" })}>
+                        View students
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setBatchPage({ batchId: b.id, page: "analytics" })}>
+                        Analytics
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Sheet open={open !== undefined} onOpenChange={(next) => !next && setOpenId(null)}>
+        <SheetContent className="overflow-y-auto sm:max-w-lg">
+          {open && departmentById.get(open.department_id) && (
+            <BatchDetails
+              batch={open}
+              department={departmentById.get(open.department_id)!}
+              onOpen={(page) => {
+                setOpenId(null);
+                setBatchPage({ batchId: open.id, page });
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
