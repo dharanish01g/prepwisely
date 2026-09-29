@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { KeyRoundIcon, PencilIcon, SearchIcon } from "lucide-react";
 import { AddUserDialog } from "@/components/add-user-dialog";
 import { EditUserDialog } from "@/components/edit-user-dialog";
+import { RefreshButton } from "@/components/refresh-button";
 import { ResetPasswordDialog } from "@/components/reset-password-dialog";
 import { TableSkeletonRows } from "@/components/table-skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ export function ContentTeamScreen() {
   const [editing, setEditing] = useState<StaffUser | null>(null);
   const [resetting, setResetting] = useState<StaffUser | null>(null);
   const { users, loading, error, refresh } = useUsers(CONTENT_TEAM_ROLE_IDS);
+  const [refreshing, setRefreshing] = useState(false);
   const { roleLabel, loading: rolesLoading } = useRoles();
 
   const filtered = useMemo(() => {
@@ -34,13 +36,22 @@ export function ContentTeamScreen() {
           <h1 className="text-2xl font-semibold">Content team</h1>
           <p className="text-sm text-muted-foreground">Create and manage content creator and reviewer accounts.</p>
         </div>
-        <AddUserDialog
-          onCreated={() => void refresh()}
-          allowedRoleIds={CONTENT_TEAM_ROLE_IDS}
-          triggerLabel="Add team member"
-          title="Add content team member"
-          description="Create a content creator or reviewer account. Share the email and temporary password with them; they can change it after signing in."
-        />
+        <div className="flex gap-2">
+          <RefreshButton
+            onRefresh={() => {
+              setRefreshing(true);
+              void refresh().finally(() => setRefreshing(false));
+            }}
+            refreshing={refreshing}
+          />
+          <AddUserDialog
+            onCreated={() => void refresh()}
+            allowedRoleIds={CONTENT_TEAM_ROLE_IDS}
+            triggerLabel="Add team member"
+            title="Add content team member"
+            description="Create a content creator or reviewer account. Share the email and temporary password with them; they can change it after signing in."
+          />
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -86,18 +97,19 @@ export function ContentTeamScreen() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <UserStatusButton user={u} onChanged={() => void refresh()} />
-                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${u.full_name}`} onClick={() => setEditing(u)}>
+                      <Button variant="ghost" size="icon-sm" title="Edit" aria-label={`Edit ${u.full_name}`} onClick={() => setEditing(u)}>
                         <PencilIcon />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        title="Reset password"
                         aria-label={`Reset password for ${u.full_name}`}
                         onClick={() => setResetting(u)}
                       >
                         <KeyRoundIcon />
                       </Button>
+                      <UserStatusButton user={u} onChanged={() => void refresh()} />
                     </div>
                   </TableCell>
                 </TableRow>

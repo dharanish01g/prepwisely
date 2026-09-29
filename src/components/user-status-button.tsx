@@ -26,6 +26,7 @@ export function UserStatusButton({ user, onChanged }: { user: StaffUser; onChang
     <Button
       variant="ghost"
       size="icon-sm"
+      title={activate ? "Reactivate" : "Deactivate"}
       aria-label={`${activate ? "Reactivate" : "Deactivate"} ${user.full_name}`}
       onClick={handleClick}
       disabled={submitting}

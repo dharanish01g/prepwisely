@@ -146,7 +146,7 @@ function BriefForm({ brief, onClose }: { brief: BriefRow | null; onClose: () => 
         <div className="grid gap-1.5">
           <Label>Assigned creators</Label>
           {creators.length === 0 ? (
-            <p className="text-xs text-muted-foreground">There are no content creators yet. Add some in User Management.</p>
+            <p className="text-xs text-muted-foreground">There are no content creators yet. Add some on the Content team page.</p>
           ) : (
             <div className="grid max-h-36 gap-1 overflow-y-auto border p-2">
               {creators.map((m) => (

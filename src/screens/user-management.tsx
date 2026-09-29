@@ -2,12 +2,15 @@ import { useMemo, useState } from "react";
 import { KeyRoundIcon, PencilIcon, SearchIcon } from "lucide-react";
 import { AddUserDialog } from "@/components/add-user-dialog";
 import { EditUserDialog } from "@/components/edit-user-dialog";
+import { RefreshButton } from "@/components/refresh-button";
 import { ResetPasswordDialog } from "@/components/reset-password-dialog";
 import { TableSkeletonRows } from "@/components/table-skeleton";
+import { UserStatusButton } from "@/components/user-status-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/hooks/use-auth";
 import { useRoles } from "@/lib/roles";
 import { type StaffUser, useUsers } from "@/lib/users";
 
@@ -16,6 +19,8 @@ export function UserManagementScreen() {
   const [editing, setEditing] = useState<StaffUser | null>(null);
   const [resetting, setResetting] = useState<StaffUser | null>(null);
   const { users, loading, error, refresh } = useUsers();
+  const { user: me } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
   const { roleLabel, loading: rolesLoading } = useRoles();
 
   const filtered = useMemo(() => {
@@ -33,7 +38,16 @@ export function UserManagementScreen() {
           <h1 className="text-2xl font-semibold">User Management</h1>
           <p className="text-sm text-muted-foreground">View and manage every staff account on the platform.</p>
         </div>
-        <AddUserDialog onCreated={() => void refresh()} />
+        <div className="flex gap-2">
+          <RefreshButton
+            onRefresh={() => {
+              setRefreshing(true);
+              void refresh().finally(() => setRefreshing(false));
+            }}
+            refreshing={refreshing}
+          />
+          <AddUserDialog onCreated={() => void refresh()} />
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -55,12 +69,12 @@ export function UserManagementScreen() {
               <TableHead>Phone</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-20" />
+              <TableHead className="w-28" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading || rolesLoading ? (
-              <TableSkeletonRows columns={["w-32", "w-48", "w-24", "w-28", "w-16", "w-14 ml-auto"]} />
+              <TableSkeletonRows columns={["w-32", "w-48", "w-24", "w-28", "w-16", "w-20 ml-auto"]} />
             ) : error || filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
@@ -79,17 +93,20 @@ export function UserManagementScreen() {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${u.full_name}`} onClick={() => setEditing(u)}>
+                      <Button variant="ghost" size="icon-sm" title="Edit" aria-label={`Edit ${u.full_name}`} onClick={() => setEditing(u)}>
                         <PencilIcon />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon-sm"
+                        title="Reset password"
                         aria-label={`Reset password for ${u.full_name}`}
                         onClick={() => setResetting(u)}
                       >
                         <KeyRoundIcon />
                       </Button>
+                      {/* The server refuses self-deactivation, so your own row has no button. */}
+                      {u.id !== me?.id && <UserStatusButton user={u} onChanged={() => void refresh()} />}
                     </div>
                   </TableCell>
                 </TableRow>

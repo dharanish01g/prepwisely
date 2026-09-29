@@ -20,6 +20,8 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
     pages: {
       colleges: "Every client college on the platform. Open one to see its details, and suspend or reactivate it. Only you can change a college's status.",
       "depts-batches": "Pick any college to see and manage its departments and batches, the same way its onboarding manager does.",
+      faculty: "Pick a college to see its faculty. Add a faculty member (you get a faculty ID like SEC-F7K2 and a password to hand over), edit their details, reset their password or deactivate them. Manage batches assigns them to the batches they teach, and keeps a record of past assignments.",
+      tpo: "Pick a college to see its TPOs (training & placement officers). Add a TPO with a new login, or Add from faculty to make an existing faculty member a TPO on the same login. Edit, reset password or deactivate from the row.",
       "user-management": "Every staff account. Add accounts, edit someone's details or role, and reset passwords.",
       categories: "The topic tree questions are filed under (for example Technical › Java). Only you can add or edit categories.",
       briefs: "Tell creators what to write: a category, easy/medium/hard targets and a deadline, assigned to one or more creators. Track progress and close a brief when it's done.",
@@ -64,9 +66,9 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
     },
     steps: [
       "Check My assignments for the briefs you're writing for.",
-      "Write the question. Save it as a draft, or submit it for review when it's ready.",
+      "Write the question. Save it as a draft, or submit it for review when it's ready: it then shows as In review.",
       "A reviewer approves it, asks for changes, or rejects it.",
-      "If it comes back, fix it from Reviewer feedback and resubmit. Editing an approved question sends it back for review.",
+      "If it comes back, fix it from Reviewer feedback and resubmit. Editing an approved question marks it Unverified: it stays out of tests until a reviewer approves it again.",
     ],
   },
   content_reviewer: {
@@ -93,10 +95,13 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
     pages: {
       "my-colleges": "The colleges you're responsible for. Add a new college with a short code (for example SEC), or edit its contact and location details. The code can't be changed later.",
       "depts-batches": "Pick one of your colleges, then add its departments (a short code like CSE and a name). Click a department for its details, or View batches to open its batches page and add batches (a batch is one section of a year's intake): you only enter the graduation year, and the next section's code (for example SEC-CSE-2027-B01, then B02) is generated. The year can't be changed later. On a batch, View students lists its students: add one, or import a CSV/Excel file (full_name, email, roll_number, and phone if the college shares it). Students sign in with their email, and their first password is the batch code without dashes (SEC-CSE-2028-B01 gives SECCSE2028B01); ask them to change it. Click a student to reset their password (back to that batch password) or deactivate them. Archive what's no longer in use; nothing is deleted.",
+      faculty: "Pick a college to see its faculty. Add a faculty member (you get a faculty ID like SEC-F7K2 and a password to hand over), edit their details, reset their password or deactivate them. Manage batches assigns them to the batches they teach, and keeps a record of past assignments.",
+      tpo: "Pick a college to see its TPOs (training & placement officers). Add a TPO with a new login, or Add from faculty to make an existing faculty member a TPO on the same login. Edit, reset password or deactivate from the row.",
     },
     steps: [
       "Add the college with a short unique code (for example SEC), its contact person and location. You're assigned to it automatically. Pick the code carefully: it can't be changed, and batch codes start with it.",
       "On Depts & batches, add the college's departments, then the batches under each one.",
+      "Add the college's faculty and assign them to their batches, then add its TPOs.",
       "Keep its details up to date. Suspending or reactivating a college is done by the superadmin.",
     ],
   },

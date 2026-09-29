@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { PencilIcon, SearchIcon } from "lucide-react";
 import { AddCategoryDialog } from "@/components/add-category-dialog";
 import { EditCategoryDialog } from "@/components/edit-category-dialog";
+import { RefreshButton } from "@/components/refresh-button";
 import { TableSkeletonRows } from "@/components/table-skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { useIsSuperadmin } from "@/lib/roles";
 export function CategoriesScreen() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Category | null>(null);
-  const { data: categories = [], isPending, error } = useCategories();
+  const { data: categories = [], isPending, error, refetch, isFetching } = useCategories();
   // Only superadmins can add or edit categories (enforced by RLS too); everyone else gets a read-only list.
   const { isSuperadmin } = useIsSuperadmin();
 
@@ -35,7 +36,10 @@ export function CategoriesScreen() {
           <h1 className="text-2xl font-semibold">Categories</h1>
           <p className="text-sm text-muted-foreground">View and manage the categories that organise the question bank.</p>
         </div>
-        {isSuperadmin && <AddCategoryDialog />}
+        <div className="flex gap-2">
+          <RefreshButton onRefresh={() => void refetch()} refreshing={isFetching} />
+          {isSuperadmin && <AddCategoryDialog />}
+        </div>
       </div>
 
       <div className="relative max-w-sm">
