@@ -63,6 +63,26 @@ export function useFacultyAssignments(collegeId: string | null) {
   });
 }
 
+/**
+ * The signed-in faculty member's current batches, as batch id -> when it was assigned. Filtered by their own id on
+ * purpose: a login that is also TPO can read every batch of the college, so "batches I can read" isn't "my batches".
+ */
+export function useMyFacultyBatches(userId: string | null) {
+  return useQuery({
+    queryKey: ["my-faculty-batches", userId ?? ""],
+    enabled: userId !== null,
+    queryFn: async (): Promise<Map<string, string>> => {
+      const { data, error } = await supabase
+        .from("faculty_batches")
+        .select("batch_id, assigned_at")
+        .eq("faculty_id", userId!)
+        .is("unassigned_at", null);
+      if (error) throw new Error(error.message);
+      return new Map(data.map((a) => [a.batch_id, a.assigned_at]));
+    },
+  });
+}
+
 /** Every faculty role, retired ones included (so an existing faculty member's role still shows its name). */
 export function useFacultyRoles() {
   return useQuery({

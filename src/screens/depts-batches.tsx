@@ -14,9 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/hooks/use-auth";
 import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import { BatchStudentsPage } from "@/screens/batch-students";
 import { type College, useColleges } from "@/lib/colleges";
+import { useMyFacultyBatches } from "@/lib/faculty";
 import { useIsSuperadmin } from "@/lib/roles";
 import { type Batch, type Department, useBatches, useDepartments, useSetArchived } from "@/lib/structure";
 import { useStudentCounts } from "@/lib/students";
@@ -25,7 +27,8 @@ import { useStudentCounts } from "@/lib/students";
 // details (drawers are for details only), and "View batches" drills into a page listing that department's batches.
 // The header breadcrumb shows the trail (Depts & batches › SEC › CSE); clicking back up keeps the picked college.
 // `readOnly` is the TPO's Departments page: their own college only (RLS), no picker, and no add/edit/archive or
-// student account actions. CollegeBatchesScreen (below) is the TPO's Batches page: every batch of the college.
+// student account actions. CollegeBatchesScreen (below) is the TPO's Batches page: every batch of the college, and
+// (with `mine`) the faculty's My batches page.
 
 function StatusBadge({ archived }: { archived: boolean }) {
   return <Badge variant={archived ? "secondary" : "default"}>{archived ? "archived" : "active"}</Badge>;
@@ -650,15 +653,18 @@ const ALL_DEPARTMENTS = "all";
 /**
  * The TPO's Batches page: every batch of their college across departments (read-only), filtered by department and
  * graduation year. A row opens the batch drawer; View students / Analytics drill into the batch's pages.
+ * `mine` is the faculty's My batches page: the same table, limited to the batches they're currently assigned to.
  */
-export function CollegeBatchesScreen() {
+export function CollegeBatchesScreen({ mine = false }: { mine?: boolean }) {
+  const { user } = useAuth();
   const { data: colleges = [], isPending: collegesPending } = useColleges();
-  // RLS lets a TPO read only their own college.
+  // RLS lets a TPO or faculty member read only their own college.
   const college = colleges[0] ?? null;
   const collegeId = college?.id ?? null;
   const departments = useDepartments(collegeId);
   const batches = useBatches(collegeId);
   const counts = useStudentCounts(collegeId ?? "");
+  const myBatches = useMyFacultyBatches(mine ? (user?.id ?? null) : null);
 
   const [departmentFilter, setDepartmentFilter] = useState(ALL_DEPARTMENTS);
   const [year, setYear] = useState<number | null>(null);
@@ -667,7 +673,7 @@ export function CollegeBatchesScreen() {
   const [batchPage, setBatchPage] = useState<{ batchId: string; page: BatchPageKind } | null>(null);
 
   const departmentById = useMemo(() => new Map((departments.data ?? []).map((d) => [d.id, d])), [departments.data]);
-  const all = batches.data ?? [];
+  const all = mine ? (batches.data ?? []).filter((b) => myBatches.data?.has(b.id)) : (batches.data ?? []);
   const shown = all.filter(
     (b) => (showArchived || !b.archived_at) && (departmentFilter === ALL_DEPARTMENTS || b.department_id === departmentFilter),
   );
@@ -676,12 +682,13 @@ export function CollegeBatchesScreen() {
   const open = openId ? all.find((b) => b.id === openId) : undefined;
   const openBatch = batchPage ? all.find((b) => b.id === batchPage.batchId) : undefined;
   const openDepartment = openBatch ? departmentById.get(openBatch.department_id) : undefined;
-  const loading = collegesPending || batches.isPending || departments.isPending;
-  const loadError = batches.error ?? departments.error;
+  const loading = collegesPending || batches.isPending || departments.isPending || (mine && myBatches.isPending);
+  const loadError = batches.error ?? departments.error ?? (mine ? myBatches.error : null);
+  const columns = mine ? 7 : 6;
 
   const departmentItems = [
     { value: ALL_DEPARTMENTS, label: "All departments" },
-    ...(departments.data ?? []).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}${d.archived_at ? " (archived)" : ""}` })),
+    ...(departments.data ?? []).filter((d) => !mine || all.some((b) => b.department_id === d.id)).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}${d.archived_at ? " (archived)" : ""}` })),
   ];
 
   useSetBreadcrumbTrail(
@@ -703,9 +710,11 @@ export function CollegeBatchesScreen() {
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Batches</h1>
+          <h1 className="text-2xl font-semibold">{mine ? "My batches" : "Batches"}</h1>
           <p className="text-sm text-muted-foreground">
-            Every batch of {college?.name ?? "your college"}, across departments. A batch is one section of a year's intake.
+            {mine
+              ? "The batches you're assigned to. A batch is one section of a year's intake."
+              : `Every batch of ${college?.name ?? "your college"}, across departments. A batch is one section of a year's intake.`}
           </p>
         </div>
         <RefreshButton
@@ -713,8 +722,9 @@ export function CollegeBatchesScreen() {
             void batches.refetch();
             void departments.refetch();
             void counts.refetch();
+            if (mine) void myBatches.refetch();
           }}
-          refreshing={batches.isFetching || departments.isFetching || counts.isFetching}
+          refreshing={batches.isFetching || departments.isFetching || counts.isFetching || myBatches.isFetching}
         />
       </div>
 
@@ -741,16 +751,17 @@ export function CollegeBatchesScreen() {
               <TableHead className="w-24">Department</TableHead>
               <TableHead className="w-28">Graduates</TableHead>
               <TableHead className="w-24">Students</TableHead>
+              {mine && <TableHead className="w-28">Assigned on</TableHead>}
               <TableHead className="w-24">Status</TableHead>
               <TableHead className="w-56" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableSkeletonRows columns={["w-32", "w-12", "w-12", "w-8", "w-16", "w-40"]} />
+              <TableSkeletonRows columns={["w-32", "w-12", "w-12", "w-8", ...(mine ? ["w-20"] : []), "w-16", "w-40"]} />
             ) : !college || loadError || visible.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className={`h-24 text-center ${loadError || !college ? "text-destructive" : "text-muted-foreground"}`}>
+                <TableCell colSpan={columns} className={`h-24 text-center ${loadError || !college ? "text-destructive" : "text-muted-foreground"}`}>
                   {!college
                     ? "Couldn't find your college. Contact support."
                     : loadError
@@ -759,7 +770,9 @@ export function CollegeBatchesScreen() {
                         ? `No batches graduate in ${year}.`
                         : all.length
                           ? "No batches match. Try another department, or turn on Show archived."
-                          : "No batches yet."}
+                          : mine
+                            ? "You're not assigned to any batch yet. Your onboarding manager assigns batches."
+                            : "No batches yet."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -769,6 +782,7 @@ export function CollegeBatchesScreen() {
                   <TableCell>{departmentById.get(b.department_id)?.code ?? "—"}</TableCell>
                   <TableCell>{b.graduation_year}</TableCell>
                   <TableCell>{counts.isPending ? "—" : (counts.data?.get(b.id) ?? 0)}</TableCell>
+                  {mine && <TableCell>{new Date(myBatches.data!.get(b.id)!).toLocaleDateString()}</TableCell>}
                   <TableCell>
                     <StatusBadge archived={b.archived_at !== null} />
                   </TableCell>

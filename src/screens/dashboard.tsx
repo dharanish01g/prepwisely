@@ -114,6 +114,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <DeptsBatchesScreen key={navCount} readOnly />
           ) : page === "batches" ? (
             <CollegeBatchesScreen key={navCount} />
+          ) : page === "my-batches" ? (
+            <CollegeBatchesScreen key={navCount} mine />
           ) : page === "students" ? (
             <CollegeStudentsScreen key={navCount} />
           ) : page === "faculty" ? (
