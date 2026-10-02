@@ -78,6 +78,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("user-management", "User Management", UsersIcon),
       ],
     },
+    { label: "Tests", items: [item("tests", "Tests", ClipboardListIcon)] },
     // Superadmin also runs content (the database already grants it everything a content manager can do).
     {
       label: "Content Management",
@@ -144,7 +145,10 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("bulk-import", "Bulk student import", UploadIcon),
       ],
     },
-    { label: "Tests", items: [item("test-schedule", "Test schedule", CalendarClockIcon)] },
+    {
+      label: "Tests",
+      items: [item("tests", "Tests", ClipboardListIcon), item("test-schedule", "Test schedule", CalendarClockIcon)],
+    },
     { label: "Reference", items: [HELP] },
   ],
   support: [
