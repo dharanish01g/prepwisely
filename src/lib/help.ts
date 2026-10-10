@@ -26,6 +26,7 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
       "test-series": "A series is a set of your tests in day order (the first test is Day 1), for long-running programmes such as a 30-day placement plan. Add tests, move them up or down, or remove them. A test can be in several series but only once in each, and only active tests can be added. Schedule a whole series, or a single test on its own.",
       "user-management": "Every staff account. Add accounts, edit someone's details or role, and reset passwords.",
       categories: "The topic tree questions are filed under (for example Technical › Java). Only you can add or edit categories.",
+      practice: "A domain is a heading on PrepCode's Practice screen (for example Aptitude) and a category is a card under it (for example Quantitative Aptitude). Add, rename and order domains; add categories with a description, a Lucide icon or an uploaded image, and optional details shown above the questions. Archive a domain or category to hide it from PrepCode. Slugs can't be changed once created.",
       briefs: "Tell creators what to write: a category, easy/medium/hard targets and a deadline, assigned to one or more creators. Track progress and close a brief when it's done.",
       "question-bank": "Every question on the platform, drafts included. Search and filter, and archive a question to keep it out of tests (or restore it).",
       "content-team": "Content creator and reviewer accounts. Add, edit, reset passwords, and deactivate or reactivate them.",
@@ -43,6 +44,7 @@ export const ROLE_HELP: Record<string, RoleHelp> = {
     summary:
       "You decide what content is needed: which topics, how many questions, and how good they must be. You direct the creators and reviewers and manage their accounts.",
     pages: {
+      practice: "A domain is a heading on PrepCode's Practice screen (for example Aptitude) and a category is a card under it (for example Quantitative Aptitude). Add, rename and order domains; add categories with a description, a Lucide icon or an uploaded image, and optional details shown above the questions. Archive a domain or category to hide it from PrepCode. Slugs can't be changed once created.",
       briefs: "Tell creators what to write: a category, easy/medium/hard targets and a deadline, assigned to one or more creators. Track each creator's contribution and close a brief when it's done.",
       "question-bank": "Every question that has been submitted. Search and filter, and archive a question to keep it out of tests (or restore it).",
       "content-team": "Content creator and reviewer accounts. Add, edit, reset passwords, and deactivate or reactivate them.",

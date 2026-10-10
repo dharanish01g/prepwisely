@@ -18,6 +18,7 @@ import {
   HistoryIcon,
   InboxIcon,
   LayersIcon,
+  LayoutGridIcon,
   LayoutDashboardIcon,
   LibraryIcon,
   LifeBuoyIcon,
@@ -88,6 +89,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "Content Management",
       items: [
         item("categories", "Categories", LayersIcon),
+        item("practice", "Practice", LayoutGridIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
         item("content-team", "Content team", UsersIcon),
@@ -101,6 +103,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "Content",
       items: [
         item("content-dashboard", "Content dashboard", LayoutDashboardIcon),
+        item("practice", "Practice", LayoutGridIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
         item("content-reports", "Reports", FileBarChartIcon),
