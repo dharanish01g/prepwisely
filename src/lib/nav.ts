@@ -21,6 +21,7 @@ import {
   LayoutDashboardIcon,
   LibraryIcon,
   LifeBuoyIcon,
+  ListOrderedIcon,
   MessageSquareIcon,
   NetworkIcon,
   PenLineIcon,
@@ -78,7 +79,10 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
         item("user-management", "User Management", UsersIcon),
       ],
     },
-    { label: "Tests", items: [item("tests", "Tests", ClipboardListIcon)] },
+    {
+      label: "Tests",
+      items: [item("tests", "Tests", ClipboardListIcon), item("test-series", "Test series", ListOrderedIcon)],
+    },
     // Superadmin also runs content (the database already grants it everything a content manager can do).
     {
       label: "Content Management",
@@ -147,7 +151,11 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
     },
     {
       label: "Tests",
-      items: [item("tests", "Tests", ClipboardListIcon), item("test-schedule", "Test schedule", CalendarClockIcon)],
+      items: [
+        item("tests", "Tests", ClipboardListIcon),
+        item("test-series", "Test series", ListOrderedIcon),
+        item("test-schedule", "Test schedule", CalendarClockIcon),
+      ],
     },
     { label: "Reference", items: [HELP] },
   ],

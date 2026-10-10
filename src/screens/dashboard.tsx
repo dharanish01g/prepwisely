@@ -26,6 +26,7 @@ import { QuestionBankScreen } from "@/screens/question-bank";
 import { ReviewHistoryScreen } from "@/screens/review-history";
 import { ReviewQueueScreen } from "@/screens/review-queue";
 import { SettingsScreen } from "@/screens/settings";
+import { TestSeriesScreen } from "@/screens/test-series";
 import { TestsScreen } from "@/screens/tests";
 import { TpoScreen } from "@/screens/tpo";
 import { UserManagementScreen } from "@/screens/user-management";
@@ -125,6 +126,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <TpoScreen key={navCount} />
           ) : page === "tests" ? (
             <TestsScreen key={navCount} />
+          ) : page === "test-series" ? (
+            <TestSeriesScreen key={navCount} />
           ) : page === "my-assignments" ? (
             <MyAssignmentsScreen onWrite={writeForBrief} />
           ) : page === "my-questions" ? (
