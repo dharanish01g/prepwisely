@@ -21,6 +21,7 @@ import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
 import { PracticeScreen } from "@/screens/practice";
+import { PracticeQuestionsScreen } from "@/screens/practice-questions";
 import { ProfileScreen } from "@/screens/profile";
 import { QualityGuidelinesScreen } from "@/screens/quality-guidelines";
 import { QuestionBankScreen } from "@/screens/question-bank";
@@ -105,6 +106,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <CategoriesScreen />
           ) : page === "practice" ? (
             <PracticeScreen key={navCount} />
+          ) : page === "practice-questions" ? (
+            <PracticeQuestionsScreen key={navCount} />
           ) : page === "write-question" ? (
             <WriteQuestionScreen key={editorKey} questionId={editingId} defaultBriefId={editorBriefId} onDone={() => navigate("my-questions")} />
           ) : page === "briefs" ? (
