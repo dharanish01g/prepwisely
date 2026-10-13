@@ -56,7 +56,7 @@ interface SolutionRow {
 }
 
 /** A stored value as the editor's text: strings as typed, lists as [1, 2], anything unparsed as it was typed. */
-function toText(value: unknown): string {
+export function toText(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return `[${value.map((v) => JSON.stringify(v)).join(", ")}]`;
   if (value === null || value === undefined) return "";

@@ -12,6 +12,7 @@ import {
   PlusIcon,
   UploadIcon,
   SearchIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,8 +28,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import { type PcCategory, type PcDomain, slugify, usePractice } from "@/lib/practice";
+import { applyGenerated, fixExpectedValues, MAX_PROMPT, MIN_PROMPT, useGenerateQuestion } from "@/lib/practice-ai";
 import { INSTALL_HINT, type RuntimeStatus, useRuntimes } from "@/lib/runtimes";
 import { runSolution as runSolutionOnComputer } from "@/lib/solution-runner";
 import {
@@ -414,12 +417,12 @@ export function PracticeQuestionsScreen() {
 // The editor
 // ---------------------------------------------------------------------------------------------------------------
 
-function Section({ n, title, aside, children }: { n: number; title: string; aside?: ReactNode; children: ReactNode }) {
+function Section({ n, title, aside, children }: { n?: number; title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="grid gap-4 border p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">
-          <span className="mr-2 text-muted-foreground">{n}</span>
+          {n !== undefined && <span className="mr-2 text-muted-foreground">{n}</span>}
           {title}
         </h2>
         {aside}
@@ -491,6 +494,64 @@ function QuestionEditor({
 
   const [moving, setMoving] = useState(false);
   const category = categories.find((c) => c.slug === q.category_slug);
+
+  // AI draft (new questions only): fills every card below from the author's description; nothing is saved.
+  const [prompt, setPrompt] = useState("");
+  const generate = useGenerateQuestion();
+  const [checkingDraft, setCheckingDraft] = useState(false);
+  const generating = generate.isPending || checkingDraft;
+  const filled = q.title.trim() !== "" || q.description.trim() !== "";
+
+  async function generateDraft() {
+    if (!category) {
+      toast.error("Choose a category first.");
+      return;
+    }
+    let next: PracticeQuestion;
+    try {
+      next = applyGenerated(q, await generate.mutateAsync({ categoryId: category.id, prompt }));
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    }
+    setSlugEdited(false);
+    setCompileErrors({});
+
+    // Expected values come from running the draft's Python solution here, when Python is installed.
+    if (!runtimes.data?.find((r) => r.id === "python")?.installed) {
+      setQ(next);
+      toast.warning("Draft filled in. Python isn't installed here, so the expected values weren't checked: check them by hand.");
+      return;
+    }
+    setCheckingDraft(true);
+    try {
+      const fix = await fixExpectedValues(next);
+      next = fix.question;
+      setQ(next);
+      if (fix.compileError !== null) {
+        setCompileErrors({ python: { code: next.solutions.python ?? "", text: fix.compileError } });
+        toast.error("Draft filled in, but its Python solution didn't run, so the expected values weren't checked.");
+        return;
+      }
+      // The cases now match the solution: show them as passed.
+      const passedCases = next.test_cases.filter((_, i) => !fix.errors.includes(i + 1));
+      setRuns(Object.fromEntries(passedCases.map((t) => [`python:${t.id}`, { key: runKey(next, t, "python"), result: { status: "passed" } as CaseResult }])));
+      const parts = [
+        fix.corrected.length
+          ? `corrected ${fix.corrected.length === 1 ? "the expected value of case" : "the expected values of cases"} ${fix.corrected.join(", ")} from the solution`
+          : "every expected value matched the solution",
+        fix.errors.length ? `the solution failed on case${fix.errors.length === 1 ? "" : "s"} ${fix.errors.join(", ")}: fix or remove ${fix.errors.length === 1 ? "it" : "them"}` : "",
+      ].filter(Boolean);
+      const message = `Draft filled in: ${parts.join("; ")}. Check the solution itself before publishing.`;
+      if (fix.errors.length) toast.warning(message);
+      else toast.success(message);
+    } catch (err) {
+      setQ(next);
+      toast.error(`Draft filled in, but checking it failed: ${(err as Error).message}`);
+    } finally {
+      setCheckingDraft(false);
+    }
+  }
   const domain = domains.find((d) => d.id === category?.domain_id);
 
   /** Saves everything and returns the question's id. */
@@ -651,6 +712,33 @@ function QuestionEditor({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_26rem]">
         <div className="grid min-w-0 content-start gap-4">
+          {isNew && (
+            <Section title="Describe the question" aside={<span className="text-xs text-muted-foreground">Drafted with AI</span>}>
+              <div className="grid gap-1.5">
+                <Label htmlFor="pq_prompt">What do you need?</Label>
+                <Textarea
+                  id="pq_prompt"
+                  rows={4}
+                  maxLength={MAX_PROMPT}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g. An easy string question: check whether a PAN number is valid, for a bank's account-opening form. Use loops, no regex."
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" size="sm" disabled={generating || running || prompt.trim().length < MIN_PROMPT} onClick={() => void generateDraft()}>
+                  <SparklesIcon />
+                  {generate.isPending ? "Generating…" : checkingDraft ? "Checking with Python…" : filled ? "Generate again" : "Generate"}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {filled
+                    ? "Generating again replaces everything below."
+                    : "Fills every card below with a draft and a Python solution, and sets each expected value by running that solution here. Nothing is saved until you save."}
+                </span>
+              </div>
+            </Section>
+          )}
+
           <Section n={1} title="Basics">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-1.5">
