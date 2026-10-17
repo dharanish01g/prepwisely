@@ -15,7 +15,7 @@ export const briefSchema = z
   .object({
     title: z.string().trim().min(1, "The title is required"),
     description: z.string(),
-    category_id: z.string({ error: "Pick a category" }).min(1, "Pick a category"),
+    category_id: z.string({ error: "Pick a topic" }).min(1, "Pick a topic"),
     target_easy: targetField,
     target_medium: targetField,
     target_hard: targetField,

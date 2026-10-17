@@ -6,7 +6,8 @@ import { parseOrThrow } from "@/lib/validation";
 // PrepCode Practice (PRACTICE.md §4): domains (the headings on PrepCode's Practice screen) holding categories (the
 // cards). Superadmin and content managers manage them; writes go through the `pc_*` database functions. A card shows
 // either a Lucide icon (by name) or an image uploaded to the `pc-images` bucket. Nothing is deleted: domains and
-// categories are archived, which hides them from PrepCode.
+// categories are archived, which hides them from PrepCode. Each category holds one kind of question (question_kinds:
+// MCQ, Coding, ...), which can change only while it has no questions.
 
 export interface PcDomain {
   id: string;
@@ -18,12 +19,30 @@ export interface PcDomain {
   archived_at: string | null;
 }
 
+/** A row of `question_kinds`, laid out like a Practice card: e.g. { id: "coding", title: "Coding", icon: "code" }. */
+export interface QuestionKind {
+  /** The slug: fixed once created, and what categories store. */
+  id: string;
+  title: string;
+  description: string;
+  /** A Lucide icon name, or null for the default. */
+  icon: string | null;
+  /** Archived kinds can't be picked for a category; categories already using one keep it. */
+  archived_at: string | null;
+}
+
+export type KindInput = Pick<QuestionKind, "id" | "title" | "description" | "icon">;
+
 export interface PcCategory {
   id: string;
   domain_id: string;
   slug: string;
   title: string;
   description: string;
+  /** A `question_kinds` id: every question in the card is of this kind. */
+  question_kind: string;
+  /** Questions in the card, archived included; while any exist the kind can't change. */
+  question_count: number;
   /** A Lucide icon name (e.g. "calculator"); null when the card uses an image. */
   icon: string | null;
   /** The card's uploaded image (https); null when it uses an icon. */
@@ -57,13 +76,83 @@ export function usePractice() {
         supabase.from("pc_domains").select("id, slug, title, position, created_at, updated_at, archived_at").order("position"),
         supabase
           .from("pc_categories")
-          .select("id, domain_id, slug, title, description, icon, logo_url, details, position, created_at, updated_at, archived_at")
+          .select(
+            "id, domain_id, slug, title, description, question_kind, icon, logo_url, details, position, created_at, updated_at, archived_at, questions:pc_questions(count)",
+          )
           .order("position"),
       ]);
       if (domains.error) throw new Error(domains.error.message);
       if (categories.error) throw new Error(categories.error.message);
-      return { domains: domains.data as PcDomain[], categories: categories.data as PcCategory[] };
+      const rows = categories.data as (Omit<PcCategory, "question_count"> & { questions: { count: number }[] })[];
+      return {
+        domains: domains.data as PcDomain[],
+        categories: rows.map(({ questions, ...c }) => ({ ...c, question_count: questions[0]?.count ?? 0 })),
+      };
     },
+  });
+}
+
+/** Every question kind, archived included, in display order. */
+export function useQuestionKinds() {
+  return useQuery({
+    queryKey: ["question-kinds"],
+    staleTime: Infinity,
+    queryFn: async (): Promise<QuestionKind[]> => {
+      const { data, error } = await supabase.from("question_kinds").select("id, title, description, icon, archived_at").order("position");
+      if (error) throw new Error(error.message);
+      return data;
+    },
+  });
+}
+
+const kindSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").max(60, "Title can be at most 60 characters"),
+  description: z.string().trim().min(1, "Description is required").max(200, "Description can be at most 200 characters"),
+  icon: z.string().nullable(),
+});
+
+function kindArgs(k: KindInput) {
+  const v = parseOrThrow(kindSchema, k);
+  return { p_title: v.title, p_description: v.description, p_icon: v.icon };
+}
+
+function useInvalidateKinds() {
+  const queryClient = useQueryClient();
+  return () => void queryClient.invalidateQueries({ queryKey: ["question-kinds"] });
+}
+
+/** Adds a kind at the end of the list. Its slug is fixed once created. */
+export function useCreateQuestionKind() {
+  const invalidate = useInvalidateKinds();
+  return useMutation({
+    mutationFn: async (k: KindInput) => rpc("question_kind_create", { p_slug: parseOrThrow(slugSchema, k.id), ...kindArgs(k) }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Replaces every field but the slug. */
+export function useUpdateQuestionKind() {
+  const invalidate = useInvalidateKinds();
+  return useMutation({
+    mutationFn: async (k: KindInput) => rpc("question_kind_update", { p_id: k.id, ...kindArgs(k) }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetQuestionKindArchived() {
+  const invalidate = useInvalidateKinds();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) => rpc("question_kind_set_archived", { p_id: id, p_archived: archived }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Every kind's id (archived included) in the new order. */
+export function useReorderQuestionKinds() {
+  const invalidate = useInvalidateKinds();
+  return useMutation({
+    mutationFn: (ids: string[]) => rpc("question_kinds_reorder", { p_ids: ids }),
+    onSettled: invalidate,
   });
 }
 
@@ -96,6 +185,7 @@ const categorySchema = z
     slug: slugSchema,
     title: titleSchema,
     description: z.string().trim().min(1, "Description is required").max(200, "Description can be at most 200 characters"),
+    question_kind: z.string().min(1, "Choose a question kind"),
     icon: z.string().nullable(),
     logo_url: z.string().nullable(),
     details: z.string().trim().max(20000, "Details can be at most 20,000 characters"),
@@ -112,6 +202,7 @@ export interface CategoryInput {
   slug: string;
   title: string;
   description: string;
+  question_kind: string;
   icon: string | null;
   logo_url: string | null;
   details: string;
@@ -175,6 +266,7 @@ function categoryArgs(input: CategoryInput) {
     p_domain_id: c.domain_id,
     p_title: c.title,
     p_description: c.description,
+    p_question_kind: c.question_kind,
     p_icon: c.icon,
     p_logo_url: c.logo_url,
     p_details: c.details || null,

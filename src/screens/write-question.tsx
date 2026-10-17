@@ -224,10 +224,10 @@ function QuestionEditor({ initial, defaultBriefId, onDone }: { initial: Question
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="question_category">Category</Label>
+            <Label htmlFor="question_category">Topic</Label>
             <Select value={categoryId} onValueChange={setCategoryId} items={categoryItems}>
               <SelectTrigger id="question_category" className="w-full">
-                <SelectValue placeholder="Select a category" />
+                <SelectValue placeholder="Select a topic" />
               </SelectTrigger>
               <SelectContent>
                 {categoryItems.map((c) => (

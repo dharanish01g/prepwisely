@@ -94,13 +94,13 @@ export function buildImportPreview(table: Cell[][], categories: CategoryChoice[]
   for (const c of categories) byName.set(normalize(c.name), [...(byName.get(normalize(c.name)) ?? []), c]);
 
   function resolveCategory(text: string): { category: CategoryChoice } | { error: string } {
-    if (!text) return { error: "The category is required" };
+    if (!text) return { error: "The topic (category column) is required" };
     const hit = bySlug.get(normalize(text)) ?? byPath.get(normalizePath(text));
     if (hit) return { category: hit };
     const named = byName.get(normalize(text)) ?? [];
     if (named.length === 1) return { category: named[0] };
-    if (named.length > 1) return { error: `"${text}" matches more than one category; use its slug or full path` };
-    return { error: `Unknown category "${text}"; use a category's slug or full path` };
+    if (named.length > 1) return { error: `"${text}" matches more than one topic; use its slug or full path` };
+    return { error: `Unknown topic "${text}"; use a topic's slug or full path` };
   }
 
   const seen = new Map<string, number>();

@@ -29,7 +29,7 @@ export function QuestionDetail({ question, showStatus = false }: { question: Rev
               {question.difficulty}
             </Badge>
           )}
-          <span>{categoryPath.get(question.category_id ?? "") ?? "No category"}</span>
+          <span>{categoryPath.get(question.category_id ?? "") ?? "No topic"}</span>
         </div>
       </div>
 

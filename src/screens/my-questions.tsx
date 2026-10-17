@@ -64,7 +64,7 @@ export function MyQuestionsScreen({ mode, onEdit }: MyQuestionsScreenProps) {
         <div className="relative w-full max-w-sm">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder={feedbackMode ? "Search by title, category or feedback" : "Search by title or category"}
+            placeholder={feedbackMode ? "Search by title, topic or feedback" : "Search by title or topic"}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-8"
@@ -91,7 +91,7 @@ export function MyQuestionsScreen({ mode, onEdit }: MyQuestionsScreenProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Topic</TableHead>
               {!feedbackMode && <TableHead>Difficulty</TableHead>}
               <TableHead>Status</TableHead>
               {feedbackMode ? <TableHead>Feedback</TableHead> : <TableHead>Updated</TableHead>}

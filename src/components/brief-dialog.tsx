@@ -98,7 +98,7 @@ function BriefForm({ brief, onClose }: { brief: BriefRow | null; onClose: () => 
           <Label htmlFor="brief_category">Topic</Label>
           <Select value={categoryId} onValueChange={setCategoryId} items={categoryItems}>
             <SelectTrigger id="brief_category" className="w-full">
-              <SelectValue placeholder="Select a category" />
+              <SelectValue placeholder="Select a topic" />
             </SelectTrigger>
             <SelectContent>
               {categoryItems.map((c) => (
@@ -108,7 +108,7 @@ function BriefForm({ brief, onClose }: { brief: BriefRow | null; onClose: () => 
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">Questions in this category or any of its subcategories count towards the brief.</p>
+          <p className="text-xs text-muted-foreground">Questions in this topic or any of its subtopics count towards the brief.</p>
         </div>
 
         <div className="grid gap-1.5">

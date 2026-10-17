@@ -33,8 +33,8 @@ export function CategoriesScreen() {
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="text-sm text-muted-foreground">View and manage the categories that organise the question bank.</p>
+          <h1 className="text-2xl font-semibold">Topics</h1>
+          <p className="text-sm text-muted-foreground">The topics test questions are tagged with. Tests pick questions by topic.</p>
         </div>
         <div className="flex gap-2">
           <RefreshButton onRefresh={() => void refetch()} refreshing={isFetching} />
@@ -70,7 +70,7 @@ export function CategoriesScreen() {
             ) : error || filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={isSuperadmin ? 6 : 5} className={`h-24 text-center ${error ? "text-destructive" : "text-muted-foreground"}`}>
-                  {error ? `Could not load categories: ${error.message}` : "No categories found."}
+                  {error ? `Could not load topics: ${error.message}` : "No topics found."}
                 </TableCell>
               </TableRow>
             ) : (

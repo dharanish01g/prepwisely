@@ -23,7 +23,7 @@ export const draftSchema = z.object({
  */
 export const submitSchema = draftSchema.extend({
   description: z.string().trim().min(1, "The description is required"),
-  category_id: z.string({ error: "Pick a category" }),
+  category_id: z.string({ error: "Pick a topic" }),
   difficulty: z.enum(["easy", "medium", "hard"], { error: "Pick a difficulty" }),
   options: z
     .array(optionSchema)

@@ -65,7 +65,7 @@ export function QuestionBankScreen() {
   const refresh = useRefreshQuestions();
 
   const categoryItems = useMemo(
-    () => [{ value: ALL, label: "All categories" }, ...buildCategoryRows(categories).map((r) => ({ value: r.category.id, label: r.path }))],
+    () => [{ value: ALL, label: "All topics" }, ...buildCategoryRows(categories).map((r) => ({ value: r.category.id, label: r.path }))],
     [categories],
   );
 
@@ -107,7 +107,7 @@ export function QuestionBankScreen() {
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search title or description" value={search} onChange={(e) => filter(setSearch)(e.target.value)} className="pl-8" />
         </div>
-        <FilterSelect aria-label="Filter by category" value={category} items={categoryItems} onChange={filter(setCategory)} className="w-52" />
+        <FilterSelect aria-label="Filter by topic" value={category} items={categoryItems} onChange={filter(setCategory)} className="w-52" />
         <FilterSelect aria-label="Filter by difficulty" value={difficulty} items={DIFFICULTY_ITEMS} onChange={filter(setDifficulty)} />
         <FilterSelect aria-label="Filter by status" value={status} items={STATUS_ITEMS} onChange={filter(setStatus)} />
         <FilterSelect
@@ -123,7 +123,7 @@ export function QuestionBankScreen() {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Topic</TableHead>
               <TableHead>Difficulty</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Updated</TableHead>
