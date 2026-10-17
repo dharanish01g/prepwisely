@@ -54,7 +54,7 @@ export function CategoryFields({ form, onChange, categories, excludedParentIds, 
         />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor={`${idPrefix}parent`}>Parent category</Label>
+        <Label htmlFor={`${idPrefix}parent`}>Parent topic</Label>
         <Select
           value={form.parent_id ?? NO_PARENT}
           onValueChange={(v) => onChange({ parent_id: v === NO_PARENT ? null : v })}

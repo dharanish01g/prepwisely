@@ -29,6 +29,7 @@ import {
   PenLineIcon,
   PresentationIcon,
   ScrollTextIcon,
+  ShapesIcon,
   SearchIcon,
   Settings2Icon,
   TargetIcon,
@@ -38,7 +39,7 @@ import {
   WrenchIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { hasStaffRole, useAuth } from "@/hooks/use-auth";
 import { saveActiveRole, useMyRoleIds, useSavedActiveRole } from "@/lib/roles";
 
 export interface NavItem {
@@ -88,8 +89,9 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
     {
       label: "Content Management",
       items: [
-        item("categories", "Categories", LayersIcon),
+        item("categories", "Topics", LayersIcon),
         item("practice", "Practice", LayoutGridIcon),
+        item("question-kinds", "Question kinds", ShapesIcon),
         item("practice-questions", "Practice questions", CodeIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
@@ -105,6 +107,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       items: [
         item("content-dashboard", "Content dashboard", LayoutDashboardIcon),
         item("practice", "Practice", LayoutGridIcon),
+        item("question-kinds", "Question kinds", ShapesIcon),
         item("practice-questions", "Practice questions", CodeIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
@@ -263,7 +266,7 @@ const isNetworkError = (error: unknown) =>
   error instanceof Error ? /fetch|network|load failed/i.test(error.message) : false;
 
 export function useNav() {
-  const { data: roleIds, isPending, isError, error, isFetching, refetch } = useMyRoleIds();
+  const { data: roleIds, isPending, isError, error, isFetching, isFetchedAfterMount, refetch } = useMyRoleIds();
   const { activeRoleId } = useActiveRole();
   const online = useOnline();
   const groups = useMemo(() => buildNav(activeRoleId ? [activeRoleId] : []), [activeRoleId]);
@@ -276,8 +279,11 @@ export function useNav() {
     offline,
     /** Roles couldn't be loaded for a reason other than being offline; `retry` tries again. */
     failed: isError && !offline,
-    /** Roles finished loading and this user has none. */
-    noAccess: roleIds !== undefined && roleIds.length === 0 && !isError,
+    /**
+     * Freshly loaded roles include no staff role (a student, or no role at all): the sidebar signs them out. Covers
+     * sessions saved before sign-in started turning them away; the cached copy alone never decides this.
+     */
+    noAccess: roleIds !== undefined && isFetchedAfterMount && !isError && !hasStaffRole(roleIds),
     retrying: isFetching,
     retry: () => void refetch(),
   };

@@ -40,7 +40,7 @@ function EditCategoryForm({ category, onClose }: { category: Category; onClose: 
   return (
     <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
       <DialogHeader>
-        <DialogTitle>Edit category</DialogTitle>
+        <DialogTitle>Edit topic</DialogTitle>
         <DialogDescription>Update details for {category.name}.</DialogDescription>
       </DialogHeader>
 

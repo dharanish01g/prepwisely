@@ -25,6 +25,7 @@ import { PracticeQuestionsScreen } from "@/screens/practice-questions";
 import { ProfileScreen } from "@/screens/profile";
 import { QualityGuidelinesScreen } from "@/screens/quality-guidelines";
 import { QuestionBankScreen } from "@/screens/question-bank";
+import { QuestionKindsScreen } from "@/screens/question-kinds";
 import { ReviewHistoryScreen } from "@/screens/review-history";
 import { ReviewQueueScreen } from "@/screens/review-queue";
 import { SettingsScreen } from "@/screens/settings";
@@ -106,6 +107,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <CategoriesScreen />
           ) : page === "practice" ? (
             <PracticeScreen key={navCount} />
+          ) : page === "question-kinds" ? (
+            <QuestionKindsScreen />
           ) : page === "practice-questions" ? (
             <PracticeQuestionsScreen key={navCount} />
           ) : page === "write-question" ? (

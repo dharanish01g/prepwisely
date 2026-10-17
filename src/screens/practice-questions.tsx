@@ -157,7 +157,8 @@ export function PracticeQuestionsScreen() {
   const [importing, setImporting] = useState(false);
 
   const domains = practice.data?.domains ?? [];
-  const categories = practice.data?.categories ?? [];
+  // Only coding cards: this page edits coding questions, and the database refuses them in a card of another kind.
+  const categories = useMemo(() => (practice.data?.categories ?? []).filter((c) => c.question_kind === "coding"), [practice.data]);
   const bySlug = useMemo(() => new Map(categories.map((c) => [c.slug, c])), [categories]);
   const domainById = useMemo(() => new Map(domains.map((d) => [d.id, d])), [domains]);
 
@@ -249,7 +250,9 @@ export function PracticeQuestionsScreen() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Practice questions</h1>
-          <p className="text-sm text-muted-foreground">The coding questions students solve in PrepCode's Practice cards.</p>
+          <p className="text-sm text-muted-foreground">
+            The coding questions students solve in PrepCode's Practice cards. Only Coding categories are listed here.
+          </p>
         </div>
         <div className="flex gap-2">
           <RefreshButton

@@ -38,13 +38,13 @@ export function AddCategoryDialog() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button size="sm" />}>
         <PlusIcon />
-        Add category
+        Add topic
       </DialogTrigger>
       <DialogContent>
         <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Add category</DialogTitle>
-            <DialogDescription>Create a category to organise the question bank.</DialogDescription>
+            <DialogTitle>Add topic</DialogTitle>
+            <DialogDescription>Create a topic to tag test questions with.</DialogDescription>
           </DialogHeader>
 
           {/* Keyed on open so the slug auto-fill state resets each time the dialog is opened. */}
@@ -61,7 +61,7 @@ export function AddCategoryDialog() {
 
           <DialogFooter>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Creating…" : "Create category"}
+              {save.isPending ? "Creating…" : "Create topic"}
             </Button>
           </DialogFooter>
         </form>

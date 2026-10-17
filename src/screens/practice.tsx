@@ -1,9 +1,5 @@
 import { type ChangeEvent, type FormEvent, useMemo, useRef, useState } from "react";
 import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
   FolderIcon,
   ImageUpIcon,
   PencilIcon,
@@ -12,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { IconPicker, LucideIcon } from "@/components/icon-picker";
+import { ArchiveButton, MoveButtons, moved, StatusBadge } from "@/components/list-controls";
 import { Markdown, MarkdownField } from "@/components/markdown";
 import { RefreshButton } from "@/components/refresh-button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +31,7 @@ import {
   useCreateCategory,
   useCreateDomain,
   usePractice,
+  useQuestionKinds,
   useReorderCategories,
   useReorderDomains,
   useSetCategoryArchived,
@@ -49,17 +47,6 @@ import {
 
 /** Which page is open: the list, or a category's form (null id = a new category in that domain). */
 type Editing = { categoryId: string | null; domainId: string } | null;
-
-/** The ids with `id` swapped with its nearest visible neighbour in the direction `by`, or null at the end. */
-function moved<T extends { id: string }>(all: T[], visible: Set<string>, id: string, by: -1 | 1): string[] | null {
-  const ids = all.map((x) => x.id);
-  const from = ids.indexOf(id);
-  let to = from + by;
-  while (to >= 0 && to < ids.length && !visible.has(ids[to])) to += by;
-  if (from < 0 || to < 0 || to >= ids.length) return null;
-  [ids[from], ids[to]] = [ids[to], ids[from]];
-  return ids;
-}
 
 export function PracticeScreen() {
   const practice = usePractice();
@@ -169,44 +156,6 @@ export function PracticeScreen() {
 // A domain and its categories
 // ---------------------------------------------------------------------------------------------------------------
 
-function StatusBadge({ archived }: { archived: boolean }) {
-  return <Badge variant={archived ? "secondary" : "default"}>{archived ? "archived" : "active"}</Badge>;
-}
-
-function MoveButtons({
-  label,
-  first,
-  last,
-  disabled,
-  onMove,
-}: {
-  label: string;
-  first: boolean;
-  last: boolean;
-  disabled: boolean;
-  onMove: (by: -1 | 1) => void;
-}) {
-  return (
-    <>
-      <Button variant="ghost" size="icon-sm" title="Move up" aria-label={`Move ${label} up`} disabled={disabled || first} onClick={() => onMove(-1)}>
-        <ArrowUpIcon />
-      </Button>
-      <Button variant="ghost" size="icon-sm" title="Move down" aria-label={`Move ${label} down`} disabled={disabled || last} onClick={() => onMove(1)}>
-        <ArrowDownIcon />
-      </Button>
-    </>
-  );
-}
-
-function ArchiveButton({ label, archived, pending, onToggle }: { label: string; archived: boolean; pending: boolean; onToggle: () => void }) {
-  const action = archived ? "Restore" : "Archive";
-  return (
-    <Button variant="ghost" size="icon-sm" title={action} aria-label={`${action} ${label}`} disabled={pending} onClick={onToggle}>
-      {archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-    </Button>
-  );
-}
-
 /** The card's picture as PrepCode draws it: the image, else the icon, else a folder. */
 function CardImage({ icon, logoUrl, className }: { icon: string | null; logoUrl: string | null; className?: string }) {
   if (logoUrl) return <img src={logoUrl} alt="" className={`${className ?? "size-6"} object-contain`} />;
@@ -239,6 +188,8 @@ function DomainBlock({
 }) {
   const setDomainArchived = useSetDomainArchived();
   const setCategoryArchived = useSetCategoryArchived();
+  const { data: kinds = [] } = useQuestionKinds();
+  const kindLabel = (id: string) => kinds.find((k) => k.id === id)?.title ?? id;
   const reorderCategories = useReorderCategories();
   const archived = domain.archived_at !== null;
 
@@ -307,6 +258,7 @@ function DomainBlock({
             <TableHead>Title</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Description</TableHead>
+            <TableHead className="w-24">Kind</TableHead>
             <TableHead className="w-24">Status</TableHead>
             <TableHead className="w-36" />
           </TableRow>
@@ -314,7 +266,7 @@ function DomainBlock({
         <TableBody>
           {visible.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-16 text-center text-muted-foreground">
+              <TableCell colSpan={7} className="h-16 text-center text-muted-foreground">
                 {hiddenCount > 0 ? "All its categories are archived." : "No categories yet."}
               </TableCell>
             </TableRow>
@@ -329,6 +281,9 @@ function DomainBlock({
                   <TableCell className="max-w-48 truncate font-medium">{c.title}</TableCell>
                   <TableCell className="text-muted-foreground">{c.slug}</TableCell>
                   <TableCell className="max-w-96 truncate text-muted-foreground">{c.description}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{kindLabel(c.question_kind)}</Badge>
+                  </TableCell>
                   <TableCell>
                     <StatusBadge archived={catArchived} />
                   </TableCell>
@@ -484,6 +439,7 @@ function CategoryFormPage({
     slug: category?.slug ?? "",
     title: category?.title ?? "",
     description: category?.description ?? "",
+    question_kind: category?.question_kind ?? "",
     icon: category?.icon ?? null,
     logo_url: category?.logo_url ?? null,
     details: category?.details ?? "",
@@ -494,6 +450,13 @@ function CategoryFormPage({
   const fileInput = useRef<HTMLInputElement>(null);
 
   const set = (patch: Partial<CategoryInput>) => setForm((f) => ({ ...f, ...patch }));
+  const { data: kinds = [] } = useQuestionKinds();
+  // Archived kinds can't be picked; the category's current kind always stays listed.
+  const kindItems = kinds
+    .filter((k) => !k.archived_at || k.id === form.question_kind)
+    .map((k) => ({ value: k.id, label: k.archived_at ? `${k.title} (archived)` : k.title }));
+  // Every question in a card is of its kind, so the kind is fixed once the card has questions.
+  const kindLocked = (category?.question_count ?? 0) > 0;
   // Archived domains can't take categories; the category's current domain always stays listed.
   const domainItems = domains
     .filter((d) => !d.archived_at || d.id === form.domain_id)
@@ -560,6 +523,27 @@ function CategoryFormPage({
             {category && form.domain_id !== category.domain_id && (
               <p className="text-xs text-muted-foreground">Moving it puts it last in the new domain.</p>
             )}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="pc_category_kind">Question kind</Label>
+            <Select value={form.question_kind || null} onValueChange={(v) => v && set({ question_kind: v })} items={kindItems} disabled={kindLocked}>
+              <SelectTrigger id="pc_category_kind" className="w-72">
+                <SelectValue placeholder="Choose a question kind" />
+              </SelectTrigger>
+              <SelectContent>
+                {kindItems.map((k) => (
+                  <SelectItem key={k.value} value={k.value}>
+                    {k.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {kindLocked
+                ? "Can't be changed: this category already has questions."
+                : "Every question in this category is of this kind. Can't be changed once it has questions."}
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
