@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
-import { type PcCategory, type PcDomain, slugify, usePractice } from "@/lib/practice";
+import { type PcCategory, type PcDomain, slugify, usePractice, useQuestionKinds } from "@/lib/practice";
 import { applyGenerated, fixExpectedValues, MAX_PROMPT, MIN_PROMPT, useGenerateQuestion } from "@/lib/practice-ai";
 import { INSTALL_HINT, type RuntimeStatus, useRuntimes } from "@/lib/runtimes";
 import { runSolution as runSolutionOnComputer } from "@/lib/solution-runner";
@@ -73,9 +73,9 @@ import {
   wordCount,
 } from "@/lib/practice-questions";
 
-// PrepCode Practice questions (superadmin and content managers): the coding questions inside each category card.
-// A list with filters, and a question opens its own page (a drill-down) with the editor on the left and what the
-// student sees on the right. Saved in pc_questions, pc_test_cases and pc_question_solutions (practice-questions-data.ts).
+// PrepCode Practice questions (superadmin and content managers): the coding questions inside a category card, opened
+// from the Practice page. A list with filters, and a question opens its own page (a drill-down) with the editor on the
+// left and what the student sees on the right. Saved in pc_questions, pc_test_cases and pc_question_solutions (practice-questions-data.ts).
 
 type Item = { value: string; label: string };
 
@@ -140,68 +140,62 @@ function AccessBadge({ access }: { access: Access }) {
   );
 }
 
-export function PracticeQuestionsScreen() {
+/**
+ * A category's questions, opened from Practice: the list (search, filters, order) and, from it, the editor. The page
+ * owns the breadcrumb (Practice › category › question). Only Coding categories have an editor so far.
+ */
+export function CategoryQuestionsPage({
+  category,
+  domains,
+  categories,
+  onBack,
+  onEditCategory,
+}: {
+  category: PcCategory;
+  domains: PcDomain[];
+  categories: PcCategory[];
+  /** Back to the Practice list. */
+  onBack: () => void;
+  onEditCategory: () => void;
+}) {
   const practice = usePractice();
-  const questionsQuery = usePracticeQuestions(practice.data?.categories);
-  const questions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
+  const questionsQuery = usePracticeQuestions(categories);
+  const allQuestions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
   const setArchived = useSetQuestionArchived();
   const reorder = useReorderQuestions();
+  const { data: kinds = [] } = useQuestionKinds();
   /** The question being edited, or a new one (not saved yet). */
   const [editing, setEditing] = useState<{ id: string } | { draft: PracticeQuestion } | null>(null);
-  const [domainFilter, setDomainFilter] = useState(ALL);
-  const [categoryFilter, setCategoryFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState(ACTIVE);
   const [difficultyFilter, setDifficultyFilter] = useState(ALL);
   const [search, setSearch] = useState("");
-  const [picking, setPicking] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const domains = practice.data?.domains ?? [];
-  // Only coding cards: this page edits coding questions, and the database refuses them in a card of another kind.
-  const categories = useMemo(() => (practice.data?.categories ?? []).filter((c) => c.question_kind === "coding"), [practice.data]);
-  const bySlug = useMemo(() => new Map(categories.map((c) => [c.slug, c])), [categories]);
-  const domainById = useMemo(() => new Map(domains.map((d) => [d.id, d])), [domains]);
+  const domain = domains.find((d) => d.id === category.domain_id);
+  const kindTitle = kinds.find((k) => k.id === category.question_kind)?.title ?? category.question_kind;
+  const isCoding = category.question_kind === "coding";
+  // The editor and import can only put a question in a coding card: the database refuses it in a card of another kind.
+  const codingCategories = useMemo(() => categories.filter((c) => c.question_kind === "coding"), [categories]);
+  const questions = useMemo(() => allQuestions.filter((q) => q.category_slug === category.slug), [allQuestions, category.slug]);
 
-  const editingQuestion = editing && "id" in editing ? questions.find((q) => q.id === editing.id) : undefined;
+  const editingQuestion = editing && "id" in editing ? allQuestions.find((q) => q.id === editing.id) : undefined;
   const editingTitle = editing ? (editingQuestion ? editingQuestion.title || "Untitled" : "New question") : "";
-  const editingCategory = editing ? bySlug.get("id" in editing ? (editingQuestion?.category_slug ?? "") : editing.draft.category_slug) : undefined;
 
   useSetBreadcrumbTrail(
-    editing
-      ? {
-          items: [...(editingCategory ? [{ label: editingCategory.title }] : []), { label: editingTitle }],
-          onRoot: () => setEditing(null),
-        }
-      : null,
-    editing ? `${editingQuestion?.id ?? "new"}/${editingTitle}` : "",
+    {
+      items: editing ? [{ label: category.title, onClick: () => setEditing(null) }, { label: editingTitle }] : [{ label: category.title }],
+      onRoot: onBack,
+    },
+    `${category.id}/${category.title}/${editing ? `${editingQuestion?.id ?? "new"}/${editingTitle}` : ""}`,
   );
 
-  // Sorted as PrepCode shows them: by domain, then category, then position.
-  const sorted = useMemo(() => {
-    const rank = (q: PracticeQuestion) => {
-      const c = bySlug.get(q.category_slug);
-      const d = c ? domainById.get(c.domain_id) : undefined;
-      return [d?.position ?? 1e9, c?.position ?? 1e9, q.position];
-    };
-    return [...questions].sort((a, b) => {
-      const [ra, rb] = [rank(a), rank(b)];
-      return ra[0] - rb[0] || ra[1] - rb[1] || ra[2] - rb[2];
-    });
-  }, [questions, bySlug, domainById]);
-
-  const visible = sorted.filter((q) => {
-    const c = bySlug.get(q.category_slug);
-    if (domainFilter !== ALL && c?.domain_id !== domainFilter) return false;
-    if (categoryFilter !== ALL && q.category_slug !== categoryFilter) return false;
+  const visible = questions.filter((q) => {
     if (statusFilter === ACTIVE ? q.status === "archived" : statusFilter !== q.status) return false;
     if (difficultyFilter !== ALL && q.difficulty !== difficultyFilter) return false;
     const s = search.trim().toLowerCase();
     return !s || q.title.toLowerCase().includes(s) || q.slug.includes(s);
   });
 
-  const activeCategories = categories.filter((c) => !c.archived_at && (domainFilter === ALL || c.domain_id === domainFilter));
-  const domainItems: Item[] = [{ value: ALL, label: "All domains" }, ...domains.filter((d) => !d.archived_at).map((d) => ({ value: d.id, label: d.title }))];
-  const categoryItems: Item[] = [{ value: ALL, label: "All categories" }, ...activeCategories.map((c) => ({ value: c.slug, label: c.title }))];
   const difficultyItems: Item[] = [{ value: ALL, label: "All difficulties" }, ...DIFFICULTIES];
 
   function toggleArchived(q: PracticeQuestion) {
@@ -215,14 +209,11 @@ export function PracticeQuestionsScreen() {
     );
   }
 
-  /** Swaps with the nearest visible question in the same category, then saves the category's whole order. */
+  /** Swaps with the nearest visible question, then saves the category's whole order. */
   function move(q: PracticeQuestion, by: -1 | 1) {
-    const same = visible.filter((x) => x.category_slug === q.category_slug);
-    const other = same[same.indexOf(q) + by];
-    const category = bySlug.get(q.category_slug);
-    if (!other || !category) return;
-    const ids = questions
-      .filter((x) => x.category_slug === q.category_slug)
+    const other = visible[visible.indexOf(q) + by];
+    if (!other) return;
+    const ids = [...questions]
       .sort((a, b) => a.position - b.position)
       .map((x) => (x.id === q.id ? other.id : x.id === other.id ? q.id : x.id));
     reorder.mutate({ categoryId: category.id, ids }, { onError: (err) => toast.error(err.message) });
@@ -236,25 +227,23 @@ export function PracticeQuestionsScreen() {
         initial={start}
         isNew={"draft" in editing}
         domains={domains}
-        categories={categories}
+        categories={codingCategories}
         onSaved={(id) => setEditing({ id })}
         onDone={() => setEditing(null)}
       />
     );
   }
 
-  const canMove = categoryFilter !== ALL;
-
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Practice questions</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold">{category.title}</h1>
           <p className="text-sm text-muted-foreground">
-            The coding questions students solve in PrepCode's Practice cards. Only Coding categories are listed here.
+            {domain?.title ?? "No domain"} · {kindTitle} questions{category.archived_at ? " · Archived" : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <RefreshButton
             onRefresh={() => {
               void practice.refetch();
@@ -262,155 +251,137 @@ export function PracticeQuestionsScreen() {
             }}
             refreshing={practice.isFetching || questionsQuery.isFetching}
           />
-          <Button size="sm" variant="outline" disabled={!questionsQuery.data} onClick={() => setImporting(true)}>
-            <UploadIcon />
-            Import
+          <Button size="sm" variant="outline" onClick={onEditCategory}>
+            <PencilIcon />
+            Edit category
           </Button>
-          <Button size="sm" onClick={() => setPicking(true)}>
-            <PlusIcon />
-            New question
-          </Button>
+          {isCoding && (
+            <>
+              <Button size="sm" variant="outline" disabled={!questionsQuery.data} onClick={() => setImporting(true)}>
+                <UploadIcon />
+                Import
+              </Button>
+              <Button size="sm" onClick={() => setEditing({ draft: emptyQuestion(category.slug, 0) })}>
+                <PlusIcon />
+                New question
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect
-          id="pq_domain"
-          value={domainFilter}
-          items={domainItems}
-          onChange={(v) => {
-            setDomainFilter(v);
-            setCategoryFilter(ALL);
-          }}
-        />
-        <FilterSelect id="pq_category" value={categoryFilter} items={categoryItems} onChange={setCategoryFilter} className="w-52" />
-        <FilterSelect id="pq_status" value={statusFilter} items={STATUS_ITEMS} onChange={setStatusFilter} />
-        <FilterSelect id="pq_difficulty" value={difficultyFilter} items={difficultyItems} onChange={setDifficultyFilter} className="w-36" />
-        <div className="relative w-64">
-          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search title or slug" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" aria-label="Search questions" />
-        </div>
-      </div>
+      {!isCoding ? (
+        <p className="border p-6 text-center text-sm text-muted-foreground">
+          {kindTitle} questions can't be written yet: prepwisely doesn't have an editor for them. Coding categories can take questions now.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-64">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search title or slug" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" aria-label="Search questions" />
+            </div>
+            <FilterSelect id="pq_status" value={statusFilter} items={STATUS_ITEMS} onChange={setStatusFilter} />
+            <FilterSelect id="pq_difficulty" value={difficultyFilter} items={difficultyItems} onChange={setDifficultyFilter} className="w-36" />
+          </div>
 
-      <div className="border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">#</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="w-24">Difficulty</TableHead>
-              <TableHead className="w-24">Access</TableHead>
-              <TableHead className="w-24">Status</TableHead>
-              <TableHead className="w-28">Updated</TableHead>
-              <TableHead className="w-36" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {questionsQuery.isPending || practice.isPending ? (
-              <TableRow>
-                <TableCell colSpan={8} className="h-20 text-center text-muted-foreground">
-                  Loading questions…
-                </TableCell>
-              </TableRow>
-            ) : questionsQuery.error || practice.error ? (
-              <TableRow>
-                <TableCell colSpan={8} className="h-20 text-center text-destructive">
-                  Could not load questions: {(questionsQuery.error ?? practice.error)?.message}
-                </TableCell>
-              </TableRow>
-            ) : visible.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="h-20 text-center text-muted-foreground">
-                  {questions.length === 0 ? "No questions yet. Add one with New question." : "No questions match."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              visible.map((q) => {
-                const c = bySlug.get(q.category_slug);
-                const same = visible.filter((x) => x.category_slug === q.category_slug);
-                const archived = q.status === "archived";
-                return (
-                  <TableRow key={q.id} className={cn(!archived && "cursor-pointer")} onClick={() => !archived && setEditing({ id: q.id })}>
-                    <TableCell className="text-muted-foreground">{q.position}</TableCell>
-                    <TableCell className="max-w-64">
-                      <p className="truncate font-medium">{q.title || "Untitled"}</p>
-                      <p className="truncate text-xs text-muted-foreground">{q.slug || "no slug"}</p>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{c?.title ?? "No category"}</TableCell>
-                    <TableCell>{difficultyLabel(q.difficulty)}</TableCell>
-                    <TableCell>
-                      <AccessBadge access={q.access} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={q.status} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{new Date(q.updated_at).toLocaleDateString()}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
-                        {canMove && (
-                          <>
-                            <Button variant="ghost" size="icon-sm" title="Move up" aria-label={`Move ${q.title} up`} disabled={reorder.isPending || same[0] === q} onClick={() => move(q, -1)}>
-                              <ArrowUpIcon />
-                            </Button>
-                            <Button variant="ghost" size="icon-sm" title="Move down" aria-label={`Move ${q.title} down`} disabled={reorder.isPending || same[same.length - 1] === q} onClick={() => move(q, 1)}>
-                              <ArrowDownIcon />
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title={archived ? "Restore it to edit" : "Edit"}
-                          aria-label={`Edit ${q.title}`}
-                          disabled={archived}
-                          onClick={() => setEditing({ id: q.id })}
-                        >
-                          <PencilIcon />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          title={archived ? "Restore" : "Archive"}
-                          aria-label={`${archived ? "Restore" : "Archive"} ${q.title}`}
-                          disabled={setArchived.isPending}
-                          onClick={() => toggleArchived(q)}
-                        >
-                          {archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-                        </Button>
-                      </div>
+          <div className="border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">#</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead className="w-24">Difficulty</TableHead>
+                  <TableHead className="w-24">Access</TableHead>
+                  <TableHead className="w-24">Status</TableHead>
+                  <TableHead className="w-28">Updated</TableHead>
+                  <TableHead className="w-36" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {questionsQuery.isPending ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-20 text-center text-muted-foreground">
+                      Loading questions…
                     </TableCell>
                   </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {!canMove && <p className="text-xs text-muted-foreground">Choose a category to change the order students see.</p>}
+                ) : questionsQuery.error ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-20 text-center text-destructive">
+                      Could not load questions: {questionsQuery.error.message}
+                    </TableCell>
+                  </TableRow>
+                ) : visible.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-20 text-center text-muted-foreground">
+                      {questions.length === 0 ? "No questions yet. Add one with New question." : "No questions match."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visible.map((q, index) => {
+                    const archived = q.status === "archived";
+                    return (
+                      <TableRow key={q.id} className={cn(!archived && "cursor-pointer")} onClick={() => !archived && setEditing({ id: q.id })}>
+                        <TableCell className="text-muted-foreground">{q.position}</TableCell>
+                        <TableCell className="max-w-96">
+                          <p className="truncate font-medium">{q.title || "Untitled"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{q.slug || "no slug"}</p>
+                        </TableCell>
+                        <TableCell>{difficultyLabel(q.difficulty)}</TableCell>
+                        <TableCell>
+                          <AccessBadge access={q.access} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={q.status} />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{new Date(q.updated_at).toLocaleDateString()}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon-sm" title="Move up" aria-label={`Move ${q.title} up`} disabled={reorder.isPending || index === 0} onClick={() => move(q, -1)}>
+                              <ArrowUpIcon />
+                            </Button>
+                            <Button variant="ghost" size="icon-sm" title="Move down" aria-label={`Move ${q.title} down`} disabled={reorder.isPending || index === visible.length - 1} onClick={() => move(q, 1)}>
+                              <ArrowDownIcon />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title={archived ? "Restore it to edit" : "Edit"}
+                              aria-label={`Edit ${q.title}`}
+                              disabled={archived}
+                              onClick={() => setEditing({ id: q.id })}
+                            >
+                              <PencilIcon />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title={archived ? "Restore" : "Archive"}
+                              aria-label={`${archived ? "Restore" : "Archive"} ${q.title}`}
+                              disabled={setArchived.isPending}
+                              onClick={() => toggleArchived(q)}
+                            >
+                              {archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-xs text-muted-foreground">Up and down set the order students see in this card.</p>
+        </>
+      )}
 
       <ImportPracticeQuestionsDialog
         open={importing}
         onOpenChange={setImporting}
         domains={domains}
-        categories={categories}
-        existingSlugs={new Set(questions.map((q) => q.slug))}
-      />
-
-      <CategoryDialog
-        open={picking}
-        title="New question"
-        description="Choose where the question goes. You write its content next."
-        action="Create question"
-        domains={domains}
-        categories={categories}
-        initialDomainId={domainFilter !== ALL ? domainFilter : bySlug.get(categoryFilter)?.domain_id}
-        initialSlug={categoryFilter !== ALL ? categoryFilter : ""}
-        onClose={() => setPicking(false)}
-        onPick={(slug) => {
-          setPicking(false);
-          setEditing({ draft: emptyQuestion(slug, 0) });
-        }}
+        categories={codingCategories}
+        existingSlugs={new Set(allQuestions.map((q) => q.slug))}
       />
     </div>
   );

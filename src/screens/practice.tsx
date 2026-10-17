@@ -7,6 +7,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "cn";
 import { IconPicker, LucideIcon } from "@/components/icon-picker";
 import { ArchiveButton, MoveButtons, moved, StatusBadge } from "@/components/list-controls";
 import { Markdown, MarkdownField } from "@/components/markdown";
@@ -20,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
+import { type Trail, useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import {
   type CategoryInput,
   IMAGE_TYPES,
@@ -39,47 +40,91 @@ import {
   useUpdateCategory,
   useUpdateDomain,
 } from "@/lib/practice";
+import { usePracticeQuestions } from "@/lib/practice-questions-data";
+import { CategoryQuestionsPage } from "@/screens/practice-questions";
 
 // PrepCode Practice (superadmin and content managers): the domains on PrepCode's Practice screen and the category
-// cards under each (PRACTICE.md §4). Domains are added and renamed in a dialog; a category opens its own page (a
-// drill-down) for the card's icon or image, details and a preview. Up / down sets the order PrepCode shows.
-// Archiving hides a domain (with its categories) or a category from PrepCode.
+// cards under each (PRACTICE.md §4). Domains are added and renamed in a dialog. A category opens its questions (a
+// drill-down, practice-questions.tsx), and its form (icon or image, details, a preview) is its own page too. Up / down
+// sets the order PrepCode shows. Archiving hides a domain (with its categories) or a category from PrepCode.
+// Each drill-down page sets its own breadcrumb; the list has none.
 
-/** Which page is open: the list, or a category's form (null id = a new category in that domain). */
+/** A category's form (null id = a new category in that domain). */
 type Editing = { categoryId: string | null; domainId: string } | null;
 
 export function PracticeScreen() {
   const practice = usePractice();
   const [showArchived, setShowArchived] = useState(false);
   const [domainDialog, setDomainDialog] = useState<{ domain: PcDomain | null } | null>(null);
+  /** The category whose questions are open. */
+  const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const reorderDomains = useReorderDomains();
+  const questions = usePracticeQuestions(practice.data?.categories);
 
   const domains = practice.data?.domains ?? [];
   const categories = practice.data?.categories ?? [];
   const editingCategory = editing?.categoryId ? categories.find((c) => c.id === editing.categoryId) : undefined;
+  const openCategory = openId ? categories.find((c) => c.id === openId) : undefined;
 
-  useSetBreadcrumbTrail(
-    editing
-      ? {
-          items: editingCategory ? [{ label: editingCategory.title }, { label: "Edit" }] : [{ label: "New category" }],
-          onRoot: () => setEditing(null),
-        }
-      : null,
-    editing ? (editingCategory ? `${editingCategory.id}/${editingCategory.title}/edit` : `new/${editing.domainId}`) : "",
-  );
+  // Questions per category for the list: all but archived, and how many of those are drafts.
+  const counts = useMemo(() => {
+    const map = new Map<string, { total: number; drafts: number }>();
+    for (const q of questions.data ?? []) {
+      if (q.status === "archived") continue;
+      const c = map.get(q.category_slug) ?? { total: 0, drafts: 0 };
+      c.total += 1;
+      if (q.status === "draft") c.drafts += 1;
+      map.set(q.category_slug, c);
+    }
+    return map;
+  }, [questions.data]);
 
   const visibleDomains = useMemo(() => domains.filter((d) => showArchived || !d.archived_at), [domains, showArchived]);
   const visibleDomainIds = useMemo(() => new Set(visibleDomains.map((d) => d.id)), [visibleDomains]);
 
+  function backToList() {
+    setEditing(null);
+    setOpenId(null);
+  }
+
   if (editing && (editing.categoryId === null || editingCategory)) {
+    const trail: Trail = editingCategory
+      ? {
+          items: [
+            {
+              label: editingCategory.title,
+              onClick: () => {
+                setEditing(null);
+                setOpenId(editingCategory.id);
+              },
+            },
+            { label: "Edit" },
+          ],
+          onRoot: backToList,
+        }
+      : { items: [{ label: "New category" }], onRoot: backToList };
     return (
       <CategoryFormPage
         key={editing.categoryId ?? `new/${editing.domainId}`}
         category={editingCategory ?? null}
         defaultDomainId={editing.domainId}
         domains={domains}
+        trail={trail}
         onDone={() => setEditing(null)}
+      />
+    );
+  }
+
+  if (openCategory) {
+    return (
+      <CategoryQuestionsPage
+        key={openCategory.id}
+        category={openCategory}
+        domains={domains}
+        categories={categories}
+        onBack={backToList}
+        onEditCategory={() => setEditing({ categoryId: openCategory.id, domainId: openCategory.domain_id })}
       />
     );
   }
@@ -141,7 +186,9 @@ export function PracticeScreen() {
             reordering={reorderDomains.isPending}
             onMove={(by) => moveDomain(domain.id, by)}
             onRename={() => setDomainDialog({ domain })}
+            counts={questions.data ? counts : null}
             onAddCategory={() => setEditing({ categoryId: null, domainId: domain.id })}
+            onOpenCategory={(c) => setOpenId(c.id)}
             onEditCategory={(c) => setEditing({ categoryId: c.id, domainId: c.domain_id })}
           />
         ))
@@ -172,7 +219,9 @@ function DomainBlock({
   reordering,
   onMove,
   onRename,
+  counts,
   onAddCategory,
+  onOpenCategory,
   onEditCategory,
 }: {
   domain: PcDomain;
@@ -183,7 +232,10 @@ function DomainBlock({
   reordering: boolean;
   onMove: (by: -1 | 1) => void;
   onRename: () => void;
+  /** Questions per category slug (archived left out); null while loading. */
+  counts: Map<string, { total: number; drafts: number }> | null;
   onAddCategory: () => void;
+  onOpenCategory: (category: PcCategory) => void;
   onEditCategory: (category: PcCategory) => void;
 }) {
   const setDomainArchived = useSetDomainArchived();
@@ -259,6 +311,7 @@ function DomainBlock({
             <TableHead>Slug</TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="w-24">Kind</TableHead>
+            <TableHead className="w-36">Questions</TableHead>
             <TableHead className="w-24">Status</TableHead>
             <TableHead className="w-36" />
           </TableRow>
@@ -266,15 +319,16 @@ function DomainBlock({
         <TableBody>
           {visible.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-16 text-center text-muted-foreground">
+              <TableCell colSpan={8} className="h-16 text-center text-muted-foreground">
                 {hiddenCount > 0 ? "All its categories are archived." : "No categories yet."}
               </TableCell>
             </TableRow>
           ) : (
             visible.map((c, index) => {
               const catArchived = c.archived_at !== null;
+              const count = counts?.get(c.slug);
               return (
-                <TableRow key={c.id}>
+                <TableRow key={c.id} className={cn(!catArchived && "cursor-pointer")} onClick={() => !catArchived && onOpenCategory(c)}>
                   <TableCell>
                     <CardImage icon={c.icon} logoUrl={c.logo_url} className="size-5" />
                   </TableCell>
@@ -284,10 +338,13 @@ function DomainBlock({
                   <TableCell>
                     <Badge variant="outline">{kindLabel(c.question_kind)}</Badge>
                   </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {counts === null ? "…" : count ? `${count.total}${count.drafts ? ` · ${count.drafts} draft${count.drafts === 1 ? "" : "s"}` : ""}` : "0"}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge archived={catArchived} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <MoveButtons
                         label={c.title}
@@ -299,7 +356,7 @@ function DomainBlock({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        title={catArchived ? "Restore it to edit" : "Edit"}
+                        title={catArchived ? "Restore it to edit" : "Edit category"}
                         aria-label={`Edit ${c.title}`}
                         disabled={catArchived}
                         onClick={() => onEditCategory(c)}
@@ -422,13 +479,16 @@ function CategoryFormPage({
   category,
   defaultDomainId,
   domains,
+  trail,
   onDone,
 }: {
   category: PcCategory | null;
   defaultDomainId: string;
   domains: PcDomain[];
+  trail: Trail;
   onDone: () => void;
 }) {
+  useSetBreadcrumbTrail(trail, category ? `${category.id}/${category.title}/edit` : `new/${defaultDomainId}`);
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const [uploading, setUploading] = useState(false);
@@ -501,7 +561,7 @@ function CategoryFormPage({
     <form noValidate onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 p-4 pt-0">
       <div>
         <h1 className="text-2xl font-semibold">{category ? "Edit category" : "New category"}</h1>
-        <p className="text-sm text-muted-foreground">A card on PrepCode's Practice screen. Its questions are added later.</p>
+        <p className="text-sm text-muted-foreground">A card on PrepCode's Practice screen. Open the card from Practice to add its questions.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
