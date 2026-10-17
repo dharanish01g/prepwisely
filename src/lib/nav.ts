@@ -89,9 +89,9 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
     {
       label: "Content Management",
       items: [
+        item("question-kinds", "Question kinds", ShapesIcon),
         item("categories", "Topics", LayersIcon),
         item("practice", "Practice", LayoutGridIcon),
-        item("question-kinds", "Question kinds", ShapesIcon),
         item("practice-questions", "Practice questions", CodeIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
@@ -106,8 +106,8 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "Content",
       items: [
         item("content-dashboard", "Content dashboard", LayoutDashboardIcon),
-        item("practice", "Practice", LayoutGridIcon),
         item("question-kinds", "Question kinds", ShapesIcon),
+        item("practice", "Practice", LayoutGridIcon),
         item("practice-questions", "Practice questions", CodeIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
