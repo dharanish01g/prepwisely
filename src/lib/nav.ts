@@ -36,7 +36,6 @@ import {
   UserIcon,
   UsersIcon,
   WrenchIcon,
-  CirclePlayIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -201,16 +200,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       ],
     },
   ],
-  student: [
-    {
-      label: "Tests",
-      items: [
-        item("todays-test", "Today's test", CirclePlayIcon),
-        item("my-results", "My results", ClipboardCheckIcon),
-        item("my-analytics", "My analytics", ChartLineIcon),
-      ],
-    },
-  ],
+  // No `student` entry: students use PrepCode for Practice and Tests; prepwisely is for staff only.
 };
 
 /** Shown to every role, below the role-specific groups. */

@@ -1,5 +1,5 @@
-// Help page content for the company-side roles (see ROLES.md / SIDEBAR.md). College-side roles (tpo, faculty,
-// student) are not covered yet.
+// Help page content for the company-side roles (see ROLES.md / SIDEBAR.md). College-side roles (tpo, faculty)
+// are not covered yet; students don't use prepwisely (they use PrepCode).
 //
 // `pages` describes the role's sidebar pages by page id. Only pages that are built get a line here, and Help
 // lists only those, so a "Coming soon" page stays out of Help until someone adds its description.
