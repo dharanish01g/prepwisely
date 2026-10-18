@@ -8,6 +8,8 @@
     "opener:default",
     "updater:default",
     "process:default",
+    "sentry:default",
+    "log:default",
     "dialog:allow-save",
     "fs:allow-write-text-file"
   ]
