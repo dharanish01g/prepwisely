@@ -30,7 +30,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
+import { McqEditor } from "@/screens/practice-mcq-editor";
 import { type PcCategory, type PcDomain, slugify, usePractice, useQuestionKinds } from "@/lib/practice";
+import { emptyMcq, type McqQuestion, useMcqQuestions } from "@/lib/practice-mcq";
 import { applyGenerated, fixExpectedValues, MAX_PROMPT, MIN_PROMPT, useGenerateQuestion } from "@/lib/practice-ai";
 import { INSTALL_HINT, type RuntimeStatus, useRuntimes } from "@/lib/runtimes";
 import { runSolution as runSolutionOnComputer } from "@/lib/solution-runner";
@@ -121,11 +123,11 @@ function FilterSelect({
   );
 }
 
-function difficultyLabel(d: Difficulty) {
+export function difficultyLabel(d: Difficulty) {
   return DIFFICULTIES.find((x) => x.value === d)?.label ?? d;
 }
 
-function StatusBadge({ status }: { status: QuestionStatus }) {
+export function StatusBadge({ status }: { status: QuestionStatus }) {
   return <Badge variant={status === "published" ? "default" : status === "archived" ? "secondary" : "outline"}>{status}</Badge>;
 }
 
@@ -141,8 +143,9 @@ function AccessBadge({ access }: { access: Access }) {
 }
 
 /**
- * A category's questions, opened from Practice: the list (search, filters, order) and, from it, the editor. The page
- * owns the breadcrumb (Practice › category › question). Only Coding categories have an editor so far.
+ * A category's questions, opened from Practice: the list (search, filters, order) and, from it, the editor for the
+ * card's kind (coding here, MCQ in practice-mcq-editor.tsx). The page owns the breadcrumb (Practice › category ›
+ * question).
  */
 export function CategoryQuestionsPage({
   category,
@@ -159,13 +162,16 @@ export function CategoryQuestionsPage({
   onEditCategory: () => void;
 }) {
   const practice = usePractice();
-  const questionsQuery = usePracticeQuestions(categories);
-  const allQuestions = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
+  const isMcq = category.question_kind === "mcq";
+  const codingQuery = usePracticeQuestions(categories);
+  const mcqQuery = useMcqQuestions(categories);
+  const questionsQuery = isMcq ? mcqQuery : codingQuery;
+  const allQuestions: (PracticeQuestion | McqQuestion)[] = useMemo(() => questionsQuery.data ?? [], [questionsQuery.data]);
   const setArchived = useSetQuestionArchived();
   const reorder = useReorderQuestions();
   const { data: kinds = [] } = useQuestionKinds();
   /** The question being edited, or a new one (not saved yet). */
-  const [editing, setEditing] = useState<{ id: string } | { draft: PracticeQuestion } | null>(null);
+  const [editing, setEditing] = useState<{ id: string } | { draft: PracticeQuestion | McqQuestion } | null>(null);
   const [statusFilter, setStatusFilter] = useState(ACTIVE);
   const [difficultyFilter, setDifficultyFilter] = useState(ALL);
   const [search, setSearch] = useState("");
@@ -174,8 +180,10 @@ export function CategoryQuestionsPage({
   const domain = domains.find((d) => d.id === category.domain_id);
   const kindTitle = kinds.find((k) => k.id === category.question_kind)?.title ?? category.question_kind;
   const isCoding = category.question_kind === "coding";
-  // The editor and import can only put a question in a coding card: the database refuses it in a card of another kind.
+  const hasEditor = isCoding || isMcq;
+  // A question can only sit in (or move to) a card of its own kind: the database refuses any other.
   const codingCategories = useMemo(() => categories.filter((c) => c.question_kind === "coding"), [categories]);
+  const mcqCategories = useMemo(() => categories.filter((c) => c.question_kind === "mcq"), [categories]);
   const questions = useMemo(() => allQuestions.filter((q) => q.category_slug === category.slug), [allQuestions, category.slug]);
 
   const editingQuestion = editing && "id" in editing ? allQuestions.find((q) => q.id === editing.id) : undefined;
@@ -198,7 +206,7 @@ export function CategoryQuestionsPage({
 
   const difficultyItems: Item[] = [{ value: ALL, label: "All difficulties" }, ...DIFFICULTIES];
 
-  function toggleArchived(q: PracticeQuestion) {
+  function toggleArchived(q: PracticeQuestion | McqQuestion) {
     const archived = q.status === "archived";
     setArchived.mutate(
       { id: q.id, archived: !archived },
@@ -210,7 +218,7 @@ export function CategoryQuestionsPage({
   }
 
   /** Swaps with the nearest visible question, then saves the category's whole order. */
-  function move(q: PracticeQuestion, by: -1 | 1) {
+  function move(q: PracticeQuestion | McqQuestion, by: -1 | 1) {
     const other = visible[visible.indexOf(q) + by];
     if (!other) return;
     const ids = [...questions]
@@ -221,10 +229,20 @@ export function CategoryQuestionsPage({
 
   if (editing && ("draft" in editing || editingQuestion)) {
     const start = "draft" in editing ? editing.draft : editingQuestion!;
-    return (
+    return isMcq ? (
+      <McqEditor
+        key={start.id}
+        initial={start as McqQuestion}
+        isNew={"draft" in editing}
+        domains={domains}
+        categories={mcqCategories}
+        onSaved={(id) => setEditing({ id })}
+        onDone={() => setEditing(null)}
+      />
+    ) : (
       <QuestionEditor
         key={start.id}
-        initial={start}
+        initial={start as PracticeQuestion}
         isNew={"draft" in editing}
         domains={domains}
         categories={codingCategories}
@@ -256,23 +274,23 @@ export function CategoryQuestionsPage({
             Edit category
           </Button>
           {isCoding && (
-            <>
-              <Button size="sm" variant="outline" disabled={!questionsQuery.data} onClick={() => setImporting(true)}>
-                <UploadIcon />
-                Import
-              </Button>
-              <Button size="sm" onClick={() => setEditing({ draft: emptyQuestion(category.slug, 0) })}>
-                <PlusIcon />
-                New question
-              </Button>
-            </>
+            <Button size="sm" variant="outline" disabled={!questionsQuery.data} onClick={() => setImporting(true)}>
+              <UploadIcon />
+              Import
+            </Button>
+          )}
+          {hasEditor && (
+            <Button size="sm" onClick={() => setEditing({ draft: isMcq ? emptyMcq(category.slug) : emptyQuestion(category.slug, 0) })}>
+              <PlusIcon />
+              New question
+            </Button>
           )}
         </div>
       </div>
 
-      {!isCoding ? (
+      {!hasEditor ? (
         <p className="border p-6 text-center text-sm text-muted-foreground">
-          {kindTitle} questions can't be written yet: prepwisely doesn't have an editor for them. Coding categories can take questions now.
+          {kindTitle} questions can't be written yet: prepwisely doesn't have an editor for them.
         </p>
       ) : (
         <>
@@ -391,7 +409,7 @@ export function CategoryQuestionsPage({
 // The editor
 // ---------------------------------------------------------------------------------------------------------------
 
-function Section({ n, title, aside, children }: { n?: number; title: string; aside?: ReactNode; children: ReactNode }) {
+export function Section({ n, title, aside, children }: { n?: number; title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="grid gap-4 border p-4">
       <div className="flex items-center justify-between gap-2">
@@ -406,7 +424,7 @@ function Section({ n, title, aside, children }: { n?: number; title: string; asi
   );
 }
 
-function Ok({ ok, children }: { ok: boolean; children: ReactNode }) {
+export function Ok({ ok, children }: { ok: boolean; children: ReactNode }) {
   return <span className={cn("text-xs", ok ? "text-muted-foreground" : "text-destructive")}>{children}</span>;
 }
 
@@ -1003,7 +1021,7 @@ function QuestionEditor({
 // Choosing a domain, then a category
 // ---------------------------------------------------------------------------------------------------------------
 
-function CategoryDialog({
+export function CategoryDialog({
   open,
   title,
   description,
@@ -1162,7 +1180,7 @@ function RuntimeLine({
   );
 }
 
-function Toggle<T extends string>({ value, items, onChange }: { value: T; items: { value: T; label: string }[]; onChange: (v: T) => void }) {
+export function Toggle<T extends string>({ value, items, onChange }: { value: T; items: { value: T; label: string }[]; onChange: (v: T) => void }) {
   return (
     <div className="flex flex-wrap gap-1">
       {items.map((i) => (
@@ -1180,7 +1198,7 @@ function TypeSelect({ id, value, onChange }: { id: string; value: ValueType; onC
   return <FilterSelect id={id} value={value} items={TYPE_ITEMS} onChange={(v) => onChange(v as ValueType)} className="w-32" />;
 }
 
-function ChecksPanel({ checks }: { checks: { label: string; ok: boolean }[] }) {
+export function ChecksPanel({ checks }: { checks: { label: string; ok: boolean }[] }) {
   return (
     <div className="grid gap-1 border border-destructive/40 bg-destructive/5 p-3">
       <p className="text-sm font-medium">Can't publish yet:</p>

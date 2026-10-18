@@ -1,17 +1,18 @@
-// Drafts a Practice coding question with Gemini from the author's description. POST { category_id, prompt }.
-//   200 { question }   a checked draft (shape: Draft in rules.ts); nothing is saved, the editor shows it
-//   400 { error }      bad body or request (too short, too long)
+// Drafts a Practice question with Gemini from the author's description. POST { category_id, prompt }. The category's
+// kind picks the rules: a coding question for a Coding card, an MCQ for an MCQ card.
+//   200 { question }   a checked draft (shape: Draft, or McqDraft for an MCQ card, in rules.ts); nothing is saved
+//   400 { error }      bad body or request (too short, too long), or a card of a kind with no AI drafts
 //   401 { error }      no or invalid session
 //   403 { error }      not superadmin or content manager (pc_can_manage)
 //   404 { error }      category not found
-//   422 { error }      refused: the request isn't a coding practice question
+//   422 { error }      refused: the request isn't a practice question of the card's kind
 //   429 { error }      over a limit (20 an hour, 100 a day per person; 500 a day in all; pc_ai_generation_start)
 //   502 { error }      Gemini failed, or its draft failed the checks in rules.ts
 // Every request is logged in pc_ai_generations (migration 20261013172848) with its outcome and tokens.
 // Secret: GEMINI_API_KEY (Google Cloud project "prepcode", restricted to the Generative Language API).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { buildRequest, checkDraft, cleanPrompt, MODEL } from "./rules.ts";
+import { buildMcqRequest, buildRequest, checkDraft, checkMcqDraft, cleanPrompt, MODEL } from "./rules.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -68,11 +69,13 @@ Deno.serve(async (req: Request) => {
   // The category, and what it already has, so the draft fits and doesn't repeat (read as the caller, under RLS).
   const { data: category, error: categoryError } = await userClient
     .from("pc_categories")
-    .select("title, description, pc_domains(title)")
+    .select("title, description, question_kind, pc_domains(title)")
     .eq("id", categoryId)
     .maybeSingle();
   if (categoryError) return fail(500, categoryError.message);
   if (!category) return fail(404, "Category not found");
+  const kind = category.question_kind as string;
+  if (kind !== "coding" && kind !== "mcq") return fail(400, "AI drafts aren't available for this category's kind yet");
   const { data: existing, error: existingError } = await userClient
     .from("pc_questions")
     .select("title, slug, method")
@@ -101,15 +104,13 @@ Deno.serve(async (req: Request) => {
     if (error) console.error("practice-ai: couldn't log the outcome:", error.message);
   }
 
-  const request = buildRequest(
-    {
-      domain: (category.pc_domains as unknown as { title: string } | null)?.title ?? "",
-      title: category.title,
-      description: category.description ?? "",
-      existing: existing ?? [],
-    },
-    cleaned.prompt,
-  );
+  const context = {
+    domain: (category.pc_domains as unknown as { title: string } | null)?.title ?? "",
+    title: category.title,
+    description: category.description ?? "",
+    existing: existing ?? [],
+  };
+  const request = kind === "mcq" ? buildMcqRequest(context, cleaned.prompt) : buildRequest(context, cleaned.prompt);
 
   let response: Response;
   try {
@@ -140,7 +141,7 @@ Deno.serve(async (req: Request) => {
   const candidate = result?.candidates?.[0];
   if (!candidate || candidate.finishReason === "SAFETY" || result?.promptFeedback?.blockReason) {
     await finish("refused", `blocked: ${candidate?.finishReason ?? result?.promptFeedback?.blockReason ?? "no answer"}`);
-    return fail(422, "The AI declined this request. Describe a coding practice question.");
+    return fail(422, `The AI declined this request. Describe ${kind === "mcq" ? "a practice MCQ" : "a coding practice question"}.`);
   }
   let raw: unknown;
   try {
@@ -150,7 +151,7 @@ Deno.serve(async (req: Request) => {
     return fail(502, "The AI answered in the wrong shape. Try again.");
   }
 
-  const checked = checkDraft(raw);
+  const checked = kind === "mcq" ? checkMcqDraft(raw) : checkDraft(raw);
   if (!checked.ok) {
     await finish(checked.refused ? "refused" : "failed", checked.error);
     return checked.refused ? fail(422, `Not generated: ${checked.error}`) : fail(502, `${checked.error}. Try again.`);
