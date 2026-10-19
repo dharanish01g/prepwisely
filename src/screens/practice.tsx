@@ -1,9 +1,5 @@
 import { type ChangeEvent, type FormEvent, useMemo, useRef, useState } from "react";
 import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
   FolderIcon,
   ImageUpIcon,
   PencilIcon,
@@ -11,7 +7,9 @@ import {
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "cn";
 import { IconPicker, LucideIcon } from "@/components/icon-picker";
+import { ArchiveButton, MoveButtons, moved, StatusBadge } from "@/components/list-controls";
 import { Markdown, MarkdownField } from "@/components/markdown";
 import { RefreshButton } from "@/components/refresh-button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
+import { type Trail, useSetBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import {
   type CategoryInput,
   IMAGE_TYPES,
@@ -34,6 +32,7 @@ import {
   useCreateCategory,
   useCreateDomain,
   usePractice,
+  useQuestionKinds,
   useReorderCategories,
   useReorderDomains,
   useSetCategoryArchived,
@@ -41,58 +40,91 @@ import {
   useUpdateCategory,
   useUpdateDomain,
 } from "@/lib/practice";
+import { usePracticeQuestions } from "@/lib/practice-questions-data";
+import { CategoryQuestionsPage } from "@/screens/practice-questions";
 
 // PrepCode Practice (superadmin and content managers): the domains on PrepCode's Practice screen and the category
-// cards under each (PRACTICE.md §4). Domains are added and renamed in a dialog; a category opens its own page (a
-// drill-down) for the card's icon or image, details and a preview. Up / down sets the order PrepCode shows.
-// Archiving hides a domain (with its categories) or a category from PrepCode.
+// cards under each (PRACTICE.md §4). Domains are added and renamed in a dialog. A category opens its questions (a
+// drill-down, practice-questions.tsx), and its form (icon or image, details, a preview) is its own page too. Up / down
+// sets the order PrepCode shows. Archiving hides a domain (with its categories) or a category from PrepCode.
+// Each drill-down page sets its own breadcrumb; the list has none.
 
-/** Which page is open: the list, or a category's form (null id = a new category in that domain). */
+/** A category's form (null id = a new category in that domain). */
 type Editing = { categoryId: string | null; domainId: string } | null;
-
-/** The ids with `id` swapped with its nearest visible neighbour in the direction `by`, or null at the end. */
-function moved<T extends { id: string }>(all: T[], visible: Set<string>, id: string, by: -1 | 1): string[] | null {
-  const ids = all.map((x) => x.id);
-  const from = ids.indexOf(id);
-  let to = from + by;
-  while (to >= 0 && to < ids.length && !visible.has(ids[to])) to += by;
-  if (from < 0 || to < 0 || to >= ids.length) return null;
-  [ids[from], ids[to]] = [ids[to], ids[from]];
-  return ids;
-}
 
 export function PracticeScreen() {
   const practice = usePractice();
   const [showArchived, setShowArchived] = useState(false);
   const [domainDialog, setDomainDialog] = useState<{ domain: PcDomain | null } | null>(null);
+  /** The category whose questions are open. */
+  const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const reorderDomains = useReorderDomains();
+  const questions = usePracticeQuestions(practice.data?.categories);
 
   const domains = practice.data?.domains ?? [];
   const categories = practice.data?.categories ?? [];
   const editingCategory = editing?.categoryId ? categories.find((c) => c.id === editing.categoryId) : undefined;
+  const openCategory = openId ? categories.find((c) => c.id === openId) : undefined;
 
-  useSetBreadcrumbTrail(
-    editing
-      ? {
-          items: editingCategory ? [{ label: editingCategory.title }, { label: "Edit" }] : [{ label: "New category" }],
-          onRoot: () => setEditing(null),
-        }
-      : null,
-    editing ? (editingCategory ? `${editingCategory.id}/${editingCategory.title}/edit` : `new/${editing.domainId}`) : "",
-  );
+  // Questions per category for the list: all but archived, and how many of those are drafts.
+  const counts = useMemo(() => {
+    const map = new Map<string, { total: number; drafts: number }>();
+    for (const q of questions.data ?? []) {
+      if (q.status === "archived") continue;
+      const c = map.get(q.category_slug) ?? { total: 0, drafts: 0 };
+      c.total += 1;
+      if (q.status === "draft") c.drafts += 1;
+      map.set(q.category_slug, c);
+    }
+    return map;
+  }, [questions.data]);
 
   const visibleDomains = useMemo(() => domains.filter((d) => showArchived || !d.archived_at), [domains, showArchived]);
   const visibleDomainIds = useMemo(() => new Set(visibleDomains.map((d) => d.id)), [visibleDomains]);
 
+  function backToList() {
+    setEditing(null);
+    setOpenId(null);
+  }
+
   if (editing && (editing.categoryId === null || editingCategory)) {
+    const trail: Trail = editingCategory
+      ? {
+          items: [
+            {
+              label: editingCategory.title,
+              onClick: () => {
+                setEditing(null);
+                setOpenId(editingCategory.id);
+              },
+            },
+            { label: "Edit" },
+          ],
+          onRoot: backToList,
+        }
+      : { items: [{ label: "New category" }], onRoot: backToList };
     return (
       <CategoryFormPage
         key={editing.categoryId ?? `new/${editing.domainId}`}
         category={editingCategory ?? null}
         defaultDomainId={editing.domainId}
         domains={domains}
+        trail={trail}
         onDone={() => setEditing(null)}
+      />
+    );
+  }
+
+  if (openCategory) {
+    return (
+      <CategoryQuestionsPage
+        key={openCategory.id}
+        category={openCategory}
+        domains={domains}
+        categories={categories}
+        onBack={backToList}
+        onEditCategory={() => setEditing({ categoryId: openCategory.id, domainId: openCategory.domain_id })}
       />
     );
   }
@@ -154,7 +186,9 @@ export function PracticeScreen() {
             reordering={reorderDomains.isPending}
             onMove={(by) => moveDomain(domain.id, by)}
             onRename={() => setDomainDialog({ domain })}
+            counts={questions.data ? counts : null}
             onAddCategory={() => setEditing({ categoryId: null, domainId: domain.id })}
+            onOpenCategory={(c) => setOpenId(c.id)}
             onEditCategory={(c) => setEditing({ categoryId: c.id, domainId: c.domain_id })}
           />
         ))
@@ -168,44 +202,6 @@ export function PracticeScreen() {
 // ---------------------------------------------------------------------------------------------------------------
 // A domain and its categories
 // ---------------------------------------------------------------------------------------------------------------
-
-function StatusBadge({ archived }: { archived: boolean }) {
-  return <Badge variant={archived ? "secondary" : "default"}>{archived ? "archived" : "active"}</Badge>;
-}
-
-function MoveButtons({
-  label,
-  first,
-  last,
-  disabled,
-  onMove,
-}: {
-  label: string;
-  first: boolean;
-  last: boolean;
-  disabled: boolean;
-  onMove: (by: -1 | 1) => void;
-}) {
-  return (
-    <>
-      <Button variant="ghost" size="icon-sm" title="Move up" aria-label={`Move ${label} up`} disabled={disabled || first} onClick={() => onMove(-1)}>
-        <ArrowUpIcon />
-      </Button>
-      <Button variant="ghost" size="icon-sm" title="Move down" aria-label={`Move ${label} down`} disabled={disabled || last} onClick={() => onMove(1)}>
-        <ArrowDownIcon />
-      </Button>
-    </>
-  );
-}
-
-function ArchiveButton({ label, archived, pending, onToggle }: { label: string; archived: boolean; pending: boolean; onToggle: () => void }) {
-  const action = archived ? "Restore" : "Archive";
-  return (
-    <Button variant="ghost" size="icon-sm" title={action} aria-label={`${action} ${label}`} disabled={pending} onClick={onToggle}>
-      {archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-    </Button>
-  );
-}
 
 /** The card's picture as PrepCode draws it: the image, else the icon, else a folder. */
 function CardImage({ icon, logoUrl, className }: { icon: string | null; logoUrl: string | null; className?: string }) {
@@ -223,7 +219,9 @@ function DomainBlock({
   reordering,
   onMove,
   onRename,
+  counts,
   onAddCategory,
+  onOpenCategory,
   onEditCategory,
 }: {
   domain: PcDomain;
@@ -234,11 +232,16 @@ function DomainBlock({
   reordering: boolean;
   onMove: (by: -1 | 1) => void;
   onRename: () => void;
+  /** Questions per category slug (archived left out); null while loading. */
+  counts: Map<string, { total: number; drafts: number }> | null;
   onAddCategory: () => void;
+  onOpenCategory: (category: PcCategory) => void;
   onEditCategory: (category: PcCategory) => void;
 }) {
   const setDomainArchived = useSetDomainArchived();
   const setCategoryArchived = useSetCategoryArchived();
+  const { data: kinds = [] } = useQuestionKinds();
+  const kindLabel = (id: string) => kinds.find((k) => k.id === id)?.title ?? id;
   const reorderCategories = useReorderCategories();
   const archived = domain.archived_at !== null;
 
@@ -307,6 +310,8 @@ function DomainBlock({
             <TableHead>Title</TableHead>
             <TableHead>Slug</TableHead>
             <TableHead>Description</TableHead>
+            <TableHead className="w-24">Kind</TableHead>
+            <TableHead className="w-36">Questions</TableHead>
             <TableHead className="w-24">Status</TableHead>
             <TableHead className="w-36" />
           </TableRow>
@@ -314,15 +319,16 @@ function DomainBlock({
         <TableBody>
           {visible.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-16 text-center text-muted-foreground">
+              <TableCell colSpan={8} className="h-16 text-center text-muted-foreground">
                 {hiddenCount > 0 ? "All its categories are archived." : "No categories yet."}
               </TableCell>
             </TableRow>
           ) : (
             visible.map((c, index) => {
               const catArchived = c.archived_at !== null;
+              const count = counts?.get(c.slug);
               return (
-                <TableRow key={c.id}>
+                <TableRow key={c.id} className={cn(!catArchived && "cursor-pointer")} onClick={() => !catArchived && onOpenCategory(c)}>
                   <TableCell>
                     <CardImage icon={c.icon} logoUrl={c.logo_url} className="size-5" />
                   </TableCell>
@@ -330,9 +336,15 @@ function DomainBlock({
                   <TableCell className="text-muted-foreground">{c.slug}</TableCell>
                   <TableCell className="max-w-96 truncate text-muted-foreground">{c.description}</TableCell>
                   <TableCell>
-                    <StatusBadge archived={catArchived} />
+                    <Badge variant="outline">{kindLabel(c.question_kind)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {counts === null ? "…" : count ? `${count.total}${count.drafts ? ` · ${count.drafts} draft${count.drafts === 1 ? "" : "s"}` : ""}` : "0"}
                   </TableCell>
                   <TableCell>
+                    <StatusBadge archived={catArchived} />
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <MoveButtons
                         label={c.title}
@@ -344,7 +356,7 @@ function DomainBlock({
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        title={catArchived ? "Restore it to edit" : "Edit"}
+                        title={catArchived ? "Restore it to edit" : "Edit category"}
                         aria-label={`Edit ${c.title}`}
                         disabled={catArchived}
                         onClick={() => onEditCategory(c)}
@@ -467,13 +479,16 @@ function CategoryFormPage({
   category,
   defaultDomainId,
   domains,
+  trail,
   onDone,
 }: {
   category: PcCategory | null;
   defaultDomainId: string;
   domains: PcDomain[];
+  trail: Trail;
   onDone: () => void;
 }) {
+  useSetBreadcrumbTrail(trail, category ? `${category.id}/${category.title}/edit` : `new/${defaultDomainId}`);
   const create = useCreateCategory();
   const update = useUpdateCategory();
   const [uploading, setUploading] = useState(false);
@@ -484,6 +499,7 @@ function CategoryFormPage({
     slug: category?.slug ?? "",
     title: category?.title ?? "",
     description: category?.description ?? "",
+    question_kind: category?.question_kind ?? "",
     icon: category?.icon ?? null,
     logo_url: category?.logo_url ?? null,
     details: category?.details ?? "",
@@ -494,6 +510,13 @@ function CategoryFormPage({
   const fileInput = useRef<HTMLInputElement>(null);
 
   const set = (patch: Partial<CategoryInput>) => setForm((f) => ({ ...f, ...patch }));
+  const { data: kinds = [] } = useQuestionKinds();
+  // Archived kinds can't be picked; the category's current kind always stays listed.
+  const kindItems = kinds
+    .filter((k) => !k.archived_at || k.id === form.question_kind)
+    .map((k) => ({ value: k.id, label: k.archived_at ? `${k.title} (archived)` : k.title }));
+  // Every question in a card is of its kind, so the kind is fixed once the card has questions.
+  const kindLocked = (category?.question_count ?? 0) > 0;
   // Archived domains can't take categories; the category's current domain always stays listed.
   const domainItems = domains
     .filter((d) => !d.archived_at || d.id === form.domain_id)
@@ -538,7 +561,7 @@ function CategoryFormPage({
     <form noValidate onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 p-4 pt-0">
       <div>
         <h1 className="text-2xl font-semibold">{category ? "Edit category" : "New category"}</h1>
-        <p className="text-sm text-muted-foreground">A card on PrepCode's Practice screen. Its questions are added later.</p>
+        <p className="text-sm text-muted-foreground">A card on PrepCode's Practice screen. Open the card from Practice to add its questions.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -560,6 +583,27 @@ function CategoryFormPage({
             {category && form.domain_id !== category.domain_id && (
               <p className="text-xs text-muted-foreground">Moving it puts it last in the new domain.</p>
             )}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="pc_category_kind">Question kind</Label>
+            <Select value={form.question_kind || null} onValueChange={(v) => v && set({ question_kind: v })} items={kindItems} disabled={kindLocked}>
+              <SelectTrigger id="pc_category_kind" className="w-72">
+                <SelectValue placeholder="Choose a question kind" />
+              </SelectTrigger>
+              <SelectContent>
+                {kindItems.map((k) => (
+                  <SelectItem key={k.value} value={k.value}>
+                    {k.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {kindLocked
+                ? "Can't be changed: this category already has questions."
+                : "Every question in this category is of this kind. Can't be changed once it has questions."}
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

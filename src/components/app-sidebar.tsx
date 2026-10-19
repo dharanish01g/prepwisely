@@ -198,6 +198,10 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps) {
   const { signOut } = useAuth()
   const { groups, loading, offline, noAccess } = useNav()
+  // Not staff (a student, or no role): prepwisely is staff-only, so end the session; the login screen follows.
+  React.useEffect(() => {
+    if (noAccess) void signOut()
+  }, [noAccess, signOut])
   const { data: myRoleIds = [] } = useMyRoleIds()
   const { roleLabel, loading: rolesLoading } = useRoles()
   const roleText = rolesLoading ? "" : myRoleIds.map(roleLabel).join(", ")
@@ -310,11 +314,7 @@ export function AppSidebar({ activePage, onNavigate, ...props }: AppSidebarProps
               ))}
             </SidebarMenu>
           </SidebarGroup>
-        ) : noAccess ? (
-          <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-            <p className="px-2 text-xs text-muted-foreground">No pages are assigned to your account yet. Contact support.</p>
-          </SidebarGroup>
-        ) : (
+        ) : noAccess ? null : (
           groups.map((group) => (
             <SidebarGroup key={group.label}>
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>

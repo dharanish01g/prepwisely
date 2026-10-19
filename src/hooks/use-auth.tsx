@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
@@ -25,9 +25,19 @@ function friendlyError(message: string): string {
   return "Couldn't sign in. Please try again.";
 }
 
+/**
+ * prepwisely is for staff only: students use PrepCode, which shares this Supabase project, so their passwords work
+ * here too. A user counts as staff if `my_role_ids()` returns any role other than 'student' (a user_roles row).
+ */
+export function hasStaffRole(roleIds: readonly string[]): boolean {
+  return roleIds.some((id) => id !== "student");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // True while signIn checks a new session's roles; the session isn't shown to the app until it passes.
+  const vetting = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -43,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
+      if (!vetting.current) setSession(next);
     });
 
     return () => {
@@ -59,12 +69,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signIn(email, password) {
         const problem = firstIssue(loginSchema, { email, password });
         if (problem) return problem;
+        vetting.current = true;
         try {
-          const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-          return error ? friendlyError(error.message) : null;
+          const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+          if (error) return friendlyError(error.message);
+          const { data: roleIds, error: rolesError } = await supabase.rpc("my_role_ids");
+          if (rolesError || !hasStaffRole((roleIds ?? []) as string[])) {
+            await supabase.auth.signOut();
+            // Not staff: answer exactly as for a wrong password, so prepwisely says nothing about the account.
+            return friendlyError(rolesError ? rolesError.message : "Invalid login credentials");
+          }
+          setSession(data.session);
+          return null;
         } catch (err) {
           console.error("[auth] sign-in failed:", err);
+          await supabase.auth.signOut().catch(() => {});
           return friendlyError(err instanceof Error ? err.message : "");
+        } finally {
+          vetting.current = false;
         }
       },
       async signOut() {

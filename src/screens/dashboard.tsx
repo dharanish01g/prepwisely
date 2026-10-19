@@ -5,7 +5,6 @@ import { ConnectionBanner } from "@/components/connection-banner";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { useAuth } from "@/hooks/use-auth";
 import { BreadcrumbTrailProvider, useBreadcrumbTrail } from "@/hooks/use-breadcrumb";
 import type { useUpdater } from "@/hooks/use-updater";
 import { COMMON_ITEMS, findNavItem, useNav } from "@/lib/nav";
@@ -20,11 +19,13 @@ import { FacultyScreen } from "@/screens/faculty";
 import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
+import { OverviewScreen } from "@/screens/overview";
+import { PlatformScreen } from "@/screens/platform";
 import { PracticeScreen } from "@/screens/practice";
-import { PracticeQuestionsScreen } from "@/screens/practice-questions";
 import { ProfileScreen } from "@/screens/profile";
 import { QualityGuidelinesScreen } from "@/screens/quality-guidelines";
 import { QuestionBankScreen } from "@/screens/question-bank";
+import { QuestionKindsScreen } from "@/screens/question-kinds";
 import { ReviewHistoryScreen } from "@/screens/review-history";
 import { ReviewQueueScreen } from "@/screens/review-queue";
 import { SettingsScreen } from "@/screens/settings";
@@ -35,7 +36,6 @@ import { UserManagementScreen } from "@/screens/user-management";
 import { WriteQuestionScreen } from "@/screens/write-question";
 
 export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpdater> }) {
-  const { user } = useAuth();
   const { groups, loading, offline, failed, retrying, retry } = useNav();
   const [requested, setRequested] = useState<string | null>(null);
   // The question open in the editor (null = a new one). The key remounts the editor so that clicking
@@ -106,8 +106,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <CategoriesScreen />
           ) : page === "practice" ? (
             <PracticeScreen key={navCount} />
-          ) : page === "practice-questions" ? (
-            <PracticeQuestionsScreen key={navCount} />
+          ) : page === "question-kinds" ? (
+            <QuestionKindsScreen />
           ) : page === "write-question" ? (
             <WriteQuestionScreen key={editorKey} questionId={editingId} defaultBriefId={editorBriefId} onDone={() => navigate("my-questions")} />
           ) : page === "briefs" ? (
@@ -151,10 +151,9 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
           ) : page === "help" ? (
             <HelpScreen onNavigate={navigate} />
           ) : page === "dashboard" ? (
-            <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
-              <h1 className="text-2xl font-semibold">Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Signed in as {user?.email}. More coming soon.</p>
-            </div>
+            <OverviewScreen />
+          ) : page === "platform-analytics" ? (
+            <PlatformScreen />
           ) : (
             <ComingSoonScreen title={title} />
           )}

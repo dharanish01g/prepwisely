@@ -156,7 +156,7 @@ export function ImportQuestionsDialog() {
                       <TableRow>
                         <TableHead className="w-12">Row</TableHead>
                         <TableHead>Title</TableHead>
-                        <TableHead>Category</TableHead>
+                        <TableHead>Topic</TableHead>
                         <TableHead>Difficulty</TableHead>
                         <TableHead className="w-16">Options</TableHead>
                         <TableHead>Result</TableHead>
@@ -229,7 +229,7 @@ function FormatGuide({ saved, onDownload }: { saved: boolean; onDownload: () => 
           <code>title</code>, <code>description</code> (markdown is fine)
         </li>
         <li>
-          <code>category</code>: the category's slug or full path, e.g. <code>Aptitude › Algebra</code>
+          <code>category</code>: the topic's slug or full path, e.g. <code>Aptitude › Algebra</code>
         </li>
         <li>
           <code>difficulty</code>: easy, medium (or med) or hard

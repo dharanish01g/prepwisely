@@ -50,8 +50,8 @@ function toError(error: { code?: string; message: string }): Error {
   if (error.code === UNIQUE_VIOLATION) {
     return new Error(
       error.message.includes("categories_slug_key")
-        ? "This slug is already used by another category"
-        : "A category with this name already exists under the selected parent",
+        ? "This slug is already used by another topic"
+        : "A topic with this name already exists under the selected parent",
     );
   }
   if (/categories_slug_format/.test(error.message)) {

@@ -69,7 +69,7 @@ function QueueList({ onOpen }: { onOpen: (id: string) => void }) {
 
       <div className="relative max-w-sm">
         <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search by title or category" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
+        <Input placeholder="Search by title or topic" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
       </div>
 
       <div className="border">
@@ -77,7 +77,7 @@ function QueueList({ onOpen }: { onOpen: (id: string) => void }) {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
+              <TableHead>Topic</TableHead>
               <TableHead>Difficulty</TableHead>
               <TableHead>Submitted</TableHead>
               <TableHead className="w-24" />

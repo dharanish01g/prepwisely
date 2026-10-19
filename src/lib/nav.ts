@@ -11,7 +11,6 @@ import {
   CircleHelpIcon,
   ClipboardCheckIcon,
   ClipboardListIcon,
-  CodeIcon,
   DownloadIcon,
   FileBarChartIcon,
   FileTextIcon,
@@ -29,6 +28,7 @@ import {
   PenLineIcon,
   PresentationIcon,
   ScrollTextIcon,
+  ShapesIcon,
   SearchIcon,
   Settings2Icon,
   TargetIcon,
@@ -36,10 +36,9 @@ import {
   UserIcon,
   UsersIcon,
   WrenchIcon,
-  CirclePlayIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { hasStaffRole, useAuth } from "@/hooks/use-auth";
 import { saveActiveRole, useMyRoleIds, useSavedActiveRole } from "@/lib/roles";
 
 export interface NavItem {
@@ -89,9 +88,9 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
     {
       label: "Content Management",
       items: [
-        item("categories", "Categories", LayersIcon),
+        item("question-kinds", "Question kinds", ShapesIcon),
+        item("categories", "Topics", LayersIcon),
         item("practice", "Practice", LayoutGridIcon),
-        item("practice-questions", "Practice questions", CodeIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
         item("content-team", "Content team", UsersIcon),
@@ -105,8 +104,8 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       label: "Content",
       items: [
         item("content-dashboard", "Content dashboard", LayoutDashboardIcon),
+        item("question-kinds", "Question kinds", ShapesIcon),
         item("practice", "Practice", LayoutGridIcon),
-        item("practice-questions", "Practice questions", CodeIcon),
         item("briefs", "Briefs & targets", TargetIcon),
         item("question-bank", "Question bank", LibraryIcon),
         item("content-reports", "Reports", FileBarChartIcon),
@@ -201,16 +200,7 @@ const NAV_BY_ROLE: Record<string, NavGroup[]> = {
       ],
     },
   ],
-  student: [
-    {
-      label: "Tests",
-      items: [
-        item("todays-test", "Today's test", CirclePlayIcon),
-        item("my-results", "My results", ClipboardCheckIcon),
-        item("my-analytics", "My analytics", ChartLineIcon),
-      ],
-    },
-  ],
+  // No `student` entry: students use PrepCode for Practice and Tests; prepwisely is for staff only.
 };
 
 /** Shown to every role, below the role-specific groups. */
@@ -273,7 +263,7 @@ const isNetworkError = (error: unknown) =>
   error instanceof Error ? /fetch|network|load failed/i.test(error.message) : false;
 
 export function useNav() {
-  const { data: roleIds, isPending, isError, error, isFetching, refetch } = useMyRoleIds();
+  const { data: roleIds, isPending, isError, error, isFetching, isFetchedAfterMount, refetch } = useMyRoleIds();
   const { activeRoleId } = useActiveRole();
   const online = useOnline();
   const groups = useMemo(() => buildNav(activeRoleId ? [activeRoleId] : []), [activeRoleId]);
@@ -286,8 +276,11 @@ export function useNav() {
     offline,
     /** Roles couldn't be loaded for a reason other than being offline; `retry` tries again. */
     failed: isError && !offline,
-    /** Roles finished loading and this user has none. */
-    noAccess: roleIds !== undefined && roleIds.length === 0 && !isError,
+    /**
+     * Freshly loaded roles include no staff role (a student, or no role at all): the sidebar signs them out. Covers
+     * sessions saved before sign-in started turning them away; the cached copy alone never decides this.
+     */
+    noAccess: roleIds !== undefined && isFetchedAfterMount && !isError && !hasStaffRole(roleIds),
     retrying: isFetching,
     retry: () => void refetch(),
   };
