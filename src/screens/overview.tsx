@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { BarChart } from "@/components/bar-chart";
 import { FilterSelect } from "@/components/filter-select";
+import { Panel, StatTile } from "@/components/stats";
 import { RefreshButton } from "@/components/refresh-button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { usePracticeStats, type PracticeStats } from "@/lib/practice-stats";
 import { indiaToday, METHOD_LABELS, summarize, useUserStats, type UserStats, type UserStatsRow } from "@/lib/user-stats";
 
 const SOURCE_ITEMS = [
@@ -16,9 +18,10 @@ const SOURCE_ITEMS = [
 
 const percent = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "–");
 
-/** Superadmin's Overview: sign-ups, how people signed up, and who came back. */
+/** Superadmin's Overview: sign-ups, how people signed up, who came back, and the practice problems solved. */
 export function OverviewScreen() {
   const stats = useUserStats();
+  const practice = usePracticeStats();
   const [source, setSource] = useState("all");
 
   const today = indiaToday();
@@ -34,12 +37,18 @@ export function OverviewScreen() {
         <div>
           <h1 className="text-2xl font-semibold">Overview</h1>
           <p className="text-sm text-muted-foreground">
-            Sign-ups across PrepCode and prepwisely, how people signed up, and who came back. Days are India days.
+            Sign-ups across PrepCode and prepwisely, who came back, and the practice problems solved. Days are India days.
           </p>
         </div>
         <div className="flex gap-2">
           <FilterSelect aria-label="Accounts" value={source} items={SOURCE_ITEMS} onChange={setSource} className="w-52" />
-          <RefreshButton onRefresh={() => void stats.refetch()} refreshing={stats.isFetching} />
+          <RefreshButton
+            onRefresh={() => {
+              void stats.refetch();
+              void practice.refetch();
+            }}
+            refreshing={stats.isFetching || practice.isFetching}
+          />
         </div>
       </div>
 
@@ -78,7 +87,7 @@ export function OverviewScreen() {
 
           <div className="grid gap-4 lg:grid-cols-3">
             <Panel title="Sign-ups per day" note="Last 30 days" className="lg:col-span-2">
-              <DailyChart daily={summary.daily} />
+              <DailyChart daily={summary.daily} noun={["sign-up", "sign-ups"]} />
             </Panel>
             <Panel title="Sign-up method">
               <MethodList summary={summary} />
@@ -93,60 +102,105 @@ export function OverviewScreen() {
           </p>
         </>
       )}
+
+      <h2 className="mt-4 text-lg font-semibold">Practice</h2>
+      {practice.isError ? (
+        <p className="text-sm text-destructive">Could not load the practice statistics: {practice.error.message}</p>
+      ) : practice.isPending ? (
+        <OverviewSkeleton />
+      ) : (
+        <PracticeSection stats={practice.data} />
+      )}
     </div>
   );
 }
 
-function StatTile({ label, value, detail }: { label: string; value: number; detail: string }) {
+/** Problems solved in PrepCode Practice: coding Submits and MCQ answers. */
+function PracticeSection({ stats }: { stats: PracticeStats }) {
+  const { coding, mcq } = stats;
   return (
-    <div className="flex flex-col gap-1 border p-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-3xl font-semibold tabular-nums">{value}</span>
-      <span className="text-xs text-muted-foreground">{detail}</span>
-    </div>
-  );
-}
-
-function Panel({ title, note, className, children }: { title: string; note?: string; className?: string; children: React.ReactNode }) {
-  return (
-    <div className={`flex flex-col gap-4 border p-4 ${className ?? ""}`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium">{title}</h2>
-        {note && <span className="text-xs text-muted-foreground">{note}</span>}
+    <>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile
+          label="Coding problems solved"
+          value={coding.solved}
+          detail={`By ${coding.solvers} ${coding.solvers === 1 ? "student" : "students"}`}
+        />
+        <StatTile
+          label="Coding Submits"
+          value={coding.submits}
+          detail={`By ${coding.submitters} ${coding.submitters === 1 ? "student" : "students"}`}
+        />
+        <StatTile
+          label="Passed on the first Submit"
+          value={coding.first_try_passed}
+          detail={`${percent(coding.first_try_passed, coding.first_tries)} of ${coding.first_tries} questions tried`}
+        />
+        <StatTile
+          label="MCQs answered right"
+          value={mcq.solved}
+          detail={`By ${mcq.solvers} ${mcq.solvers === 1 ? "student" : "students"} · ${percent(mcq.first_try_correct, mcq.first_tries)} right first time`}
+        />
       </div>
-      {children}
-    </div>
+
+      <Panel title="Coding problems solved per day" note="Last 30 days">
+        <DailyChart daily={coding.daily} noun={["solve", "solves"]} />
+      </Panel>
+
+      <div className="border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Most solved coding questions</TableHead>
+              <TableHead className="w-32 text-right">Students solved</TableHead>
+              <TableHead className="w-28 text-right">Submits</TableHead>
+              <TableHead className="w-40 text-right">Passed first time</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {coding.top.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                  No coding problems solved yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              coding.top.map((q) => (
+                <TableRow key={q.slug}>
+                  <TableCell>{q.title}</TableCell>
+                  <TableCell className="text-right tabular-nums">{q.solvers}</TableCell>
+                  <TableCell className="text-right tabular-nums">{q.submits}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {q.first_try_passed} <span className="text-muted-foreground">({percent(q.first_try_passed, q.first_tries)})</span>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Recorded by PrepCode at each Submit, so no one's GitHub is read. Solved means every example passed (or the MCQ
+        was answered right), counted once per student and question. Solves from before PrepCode recorded Submits count
+        as solved but not as Submits. Students' numbers appear once they're on the PrepCode version that records them.
+      </p>
+    </>
   );
 }
 
-function DailyChart({ daily }: { daily: UserStats["daily"] }) {
-  const max = Math.max(1, ...daily.map((d) => d.users));
+/** One bar per day; `noun` names what's counted, singular and plural. */
+function DailyChart({ daily, noun }: { daily: UserStats["daily"]; noun: [string, string] }) {
   const label = (day: string) => format(parseISO(day), "d MMM");
   return (
-    <div className="flex flex-col gap-1">
-      <div className="relative flex h-44 items-end gap-0.5 border-b border-t border-t-border/50">
-        <span className="absolute -top-2 right-0 bg-background pl-1 text-[10px] leading-none text-muted-foreground tabular-nums">
-          {max}
-        </span>
-        {daily.map((d) => (
-          <Tooltip key={d.day}>
-            <TooltipTrigger
-              render={<div className="flex h-full flex-1 items-end hover:bg-muted" aria-label={`${label(d.day)}: ${d.users} sign-ups`} />}
-            >
-              <div className="w-full bg-primary" style={{ height: `${(d.users / max) * 100}%` }} />
-            </TooltipTrigger>
-            <TooltipContent>
-              {format(parseISO(d.day), "EEE d MMM")}: {d.users} {d.users === 1 ? "sign-up" : "sign-ups"}
-            </TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground">
-        <span>{label(daily[0].day)}</span>
-        <span>{label(daily[Math.floor(daily.length / 2)].day)}</span>
-        <span>Today</span>
-      </div>
-    </div>
+    <BarChart
+      bars={daily.map((d) => ({
+        key: d.day,
+        value: d.users,
+        tooltip: `${format(parseISO(d.day), "EEE d MMM")}: ${d.users} ${d.users === 1 ? noun[0] : noun[1]}`,
+      }))}
+      labels={[label(daily[0].day), label(daily[Math.floor(daily.length / 2)].day), "Today"]}
+    />
   );
 }
 

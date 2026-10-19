@@ -20,6 +20,7 @@ import { HelpScreen } from "@/screens/help";
 import { MyAssignmentsScreen } from "@/screens/my-assignments";
 import { MyQuestionsScreen } from "@/screens/my-questions";
 import { OverviewScreen } from "@/screens/overview";
+import { PlatformScreen } from "@/screens/platform";
 import { PracticeScreen } from "@/screens/practice";
 import { ProfileScreen } from "@/screens/profile";
 import { QualityGuidelinesScreen } from "@/screens/quality-guidelines";
@@ -151,6 +152,8 @@ export function DashboardScreen({ updater }: { updater: ReturnType<typeof useUpd
             <HelpScreen onNavigate={navigate} />
           ) : page === "dashboard" ? (
             <OverviewScreen />
+          ) : page === "platform-analytics" ? (
+            <PlatformScreen />
           ) : (
             <ComingSoonScreen title={title} />
           )}
