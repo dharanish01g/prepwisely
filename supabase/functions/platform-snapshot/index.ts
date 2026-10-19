@@ -34,45 +34,41 @@ const fail = (status: number, error: string) => json({ error }, status);
 // The most failing endpoints kept per hour.
 const ERRORS_PER_HOUR = 20;
 
-const FROM = `
-  from edge_logs t
-    cross join unnest(t.metadata) as m
-    cross join unnest(m.request) as r
-    cross join unnest(m.response) as res`;
+// Logs come from the unified `logs` table (ClickHouse SQL); request and response fields live in log_attributes.
+const STATUS = "toInt32OrZero(log_attributes['response.status_code'])";
 
 const SERVICE = `
-  case
-    when starts_with(r.path, '/rest/') then 'database'
-    when starts_with(r.path, '/auth/') then 'auth'
-    when starts_with(r.path, '/storage/') then 'storage'
-    when starts_with(r.path, '/functions/') then 'functions'
-    when starts_with(r.path, '/realtime/') then 'realtime'
-    else 'other'
-  end`;
+  multiIf(
+    startsWith(log_attributes['request.path'], '/rest/'), 'database',
+    startsWith(log_attributes['request.path'], '/auth/'), 'auth',
+    startsWith(log_attributes['request.path'], '/storage/'), 'storage',
+    startsWith(log_attributes['request.path'], '/functions/'), 'functions',
+    startsWith(log_attributes['request.path'], '/realtime/'), 'realtime',
+    'other')`;
 
 const HOURLY_SQL = `
 select
-  timestamp_trunc(t.timestamp, hour) as hour,
+  toStartOfHour(timestamp) as hour,
   ${SERVICE} as service,
-  count(*) as requests,
-  countif(res.status_code >= 400 and res.status_code < 500) as errors_4xx,
-  countif(res.status_code >= 500) as errors_5xx,
-  sum(coalesce(res.origin_time, 0)) as total_ms,
-  max(coalesce(res.origin_time, 0)) as max_ms,
-  sum(coalesce(safe_cast(h.content_length as int64), 0)) as bytes
-${FROM}
-  left join unnest(res.headers) as h
+  count() as requests,
+  countIf(${STATUS} between 400 and 499) as errors_4xx,
+  countIf(${STATUS} >= 500) as errors_5xx,
+  sum(toFloat64OrZero(log_attributes['response.origin_time'])) as total_ms,
+  max(toFloat64OrZero(log_attributes['response.origin_time'])) as max_ms,
+  sum(toInt64OrZero(log_attributes['response.headers.content_length'])) as bytes
+from logs
+where source = 'edge_logs'
 group by hour, service`;
 
 const ERRORS_SQL = `
 select
-  timestamp_trunc(t.timestamp, hour) as hour,
-  r.method as method,
-  r.path as path,
-  res.status_code as status,
-  count(*) as requests
-${FROM}
-where res.status_code >= 400
+  toStartOfHour(timestamp) as hour,
+  log_attributes['request.method'] as method,
+  log_attributes['request.path'] as path,
+  ${STATUS} as status,
+  count() as requests
+from logs
+where source = 'edge_logs' and ${STATUS} >= 400
 group by hour, method, path, status
 order by requests desc
 limit 1000`;
@@ -81,7 +77,7 @@ type Row = Record<string, unknown>;
 
 /** Runs a logs query over [start, end) through the Management API. */
 async function queryLogs(sql: string, start: Date, end: Date): Promise<Row[]> {
-  const url = new URL(`https://api.supabase.com/v1/projects/${projectRef}/analytics/endpoints/logs.all`);
+  const url = new URL(`https://api.supabase.com/v1/projects/${projectRef}/analytics/endpoints/logs`);
   url.searchParams.set("sql", sql);
   url.searchParams.set("iso_timestamp_start", start.toISOString());
   url.searchParams.set("iso_timestamp_end", end.toISOString());
@@ -94,9 +90,11 @@ async function queryLogs(sql: string, start: Date, end: Date): Promise<Row[]> {
   return (body.result ?? []) as Row[];
 }
 
-/** An hour as the logs return it (microseconds since the epoch, or a timestamp string), as an ISO string. */
+/** An hour as the logs return it (microseconds since the epoch, or a UTC timestamp string), as an ISO string. */
 function toHour(value: unknown): string {
-  const date = typeof value === "number" ? new Date(value / 1000) : new Date(String(value));
+  // The logs give UTC times without a zone ("2026-10-19T01:00:00"); without the Z they'd parse as local time.
+  const text = String(value);
+  const date = typeof value === "number" ? new Date(value / 1000) : new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(text) ? text : `${text}Z`);
   if (Number.isNaN(date.getTime())) throw new Error(`Unexpected hour from the logs: ${JSON.stringify(value)}`);
   date.setUTCMinutes(0, 0, 0);
   return date.toISOString();
